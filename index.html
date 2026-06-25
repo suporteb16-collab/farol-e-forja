@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Farol e Forja — Dashboard B16</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f4f2;--surface:#fff;--surface2:#f9f9f7;--border:#e5e5e0;--border2:#d0d0c8;--yellow:#d4a800;--yellow-bg:#fff9e0;--black:#111;--text:#1a1a1a;--muted:#777;--green:#16a34a}
+html.dark{--bg:#0d0d0d;--surface:#1a1a1a;--surface2:#222;--border:#2a2a2a;--border2:#333;--yellow:#d4a800;--yellow-bg:rgba(212,168,0,.08);--black:#f0f0f0;--text:#e8e8e8;--muted:#666;--green:#22c55e}
+html.dark body{background:var(--bg);color:var(--text)}
+html.dark .tbl thead tr{background:#000}
+html.dark .tbl tbody tr:hover{background:#222}
+html.dark .tabela-wrap{background:var(--surface)}
+html.dark input[type=date]{color:#ccc}
+html.dark .loading-overlay{background:rgba(13,13,13,.92)}
+html.dark .btn-theme{border-color:#444;color:#aaa}
+html.dark .btn-theme:hover{background:#333;color:#fff}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;padding-bottom:80px}
+.header{background:var(--black);border-bottom:3px solid var(--yellow);padding:12px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;gap:12px;flex-wrap:wrap}
+.header-left{display:flex;align-items:center;gap:18px;flex-shrink:0}
+.vline{width:1px;height:30px;background:#333}
+.campaign-title{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:3px;color:#fff;opacity:.85}
+.header-center{display:flex;align-items:center;gap:8px;flex:1;justify-content:center;flex-wrap:wrap}
+.filter-group{display:flex;align-items:center;gap:6px;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:6px 10px}
+.filter-label{font-size:9px;color:#666;text-transform:uppercase;letter-spacing:1px;white-space:nowrap}
+.filter-sep{font-size:11px;color:#444}
+input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM Sans',sans-serif;font-size:12px;outline:none;cursor:pointer;color-scheme:dark}
+.btn-filter{background:var(--yellow);color:#000;border:none;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;padding:7px 14px;border-radius:6px;cursor:pointer}
+.btn-filter:hover{background:#c49200}
+.btn-filter.sec{background:transparent;border:1px solid #444;color:#888}
+.btn-filter.sec:hover{color:#ccc}
+.header-right{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.upd-label{font-size:9px;color:#555;text-transform:uppercase;letter-spacing:1.5px}
+.upd-date{font-size:11px;color:var(--yellow);font-weight:500;margin-top:1px}
+.upd-next{font-size:10px;color:#444;margin-top:1px}
+.btn-refresh{background:transparent;border:1px solid var(--yellow);color:var(--yellow);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;padding:7px 14px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s}
+.btn-refresh:hover{background:var(--yellow);color:#000}
+.btn-refresh.loading{opacity:.6;cursor:wait}
+.spin{display:inline-block;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:4px 10px;border-radius:20px}
+.status-badge.ok{background:rgba(22,163,74,.1);color:#16a34a;border:1px solid rgba(22,163,74,.3)}
+.status-badge.loading{background:rgba(212,168,0,.1);color:var(--yellow);border:1px solid rgba(212,168,0,.3)}
+.status-badge.error{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.loading-overlay{position:fixed;inset:0;background:rgba(244,244,242,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:16px}
+.loading-overlay.hidden{display:none}
+.loading-spinner{width:48px;height:48px;border:3px solid var(--border2);border-top-color:var(--yellow);border-radius:50%;animation:spin .8s linear infinite}
+.loading-text{font-size:14px;color:var(--muted);font-weight:500}
+.error-banner{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 20px;margin-bottom:20px;color:#dc2626;font-size:13px;display:none;gap:10px;line-height:1.5}
+.error-banner.show{display:flex}
+.tabs-nav{display:flex;gap:4px;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content}
+.tab-btn{background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--muted);padding:8px 20px;border-radius:7px;cursor:pointer;transition:all .2s}
+.tab-btn:hover{color:var(--text)}
+.tab-active{background:var(--black)!important;color:#fff!important}
+.main{max-width:1380px;margin:0 auto;padding:24px 32px 0}
+.section-label{font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--black);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border2)}
+.bignumbers{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:28px}
+.bn{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px;position:relative;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.bn:hover{border-color:var(--yellow)}
+.bn::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--yellow);border-radius:12px 12px 0 0}
+.bn-lbl{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.bn-val{font-family:'Bebas Neue',sans-serif;font-size:46px;color:var(--black);line-height:1}
+.bn-sub{font-size:11px;color:var(--muted);margin-top:5px}
+.bn-delta{font-size:11px;margin-top:6px;min-height:16px}
+.delta-up{color:#16a34a;font-weight:600}
+.delta-down{color:#ef4444;font-weight:600}
+.funnel-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px 40px;margin-bottom:28px}
+.funnel-steps{display:flex;flex-direction:column;align-items:center}
+.funnel-trap{background:linear-gradient(135deg,var(--yellow) 0%,#c49200 100%);border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:64px;margin:0 auto;clip-path:polygon(3% 0%,97% 0%,100% 100%,0% 100%)}
+.ft-left{display:flex;flex-direction:column}
+.ft-name{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(0,0,0,.5)}
+.ft-val{font-family:'Bebas Neue',sans-serif;font-size:32px;color:#fff;line-height:1}
+.ft-right{text-align:right}
+.ft-cost{font-family:'Bebas Neue',sans-serif;font-size:26px;color:rgba(255,255,255,.95);line-height:1}
+.ft-cost-lbl{font-size:10px;color:rgba(255,255,255,.6);margin-top:2px}
+.fc{display:flex;flex-direction:column;align-items:center;margin:3px auto}
+.fc-line{width:2px;height:12px;background:var(--border2)}
+.fc-tag{background:var(--surface2);border:1px solid var(--border2);color:var(--black);font-size:10px;font-weight:700;padding:3px 12px;border-radius:20px;white-space:nowrap}
+.funnel-trap.green-row{background:linear-gradient(135deg,#16a34a 0%,#15803d 100%)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-bottom:28px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.card-title{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:18px}
+.pub-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px}
+.pub-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px}
+.pub-head{display:flex;justify-content:space-between;align-items:flex-start}
+.pub-tag{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 12px;border-radius:4px}
+.pub-tag.frio{background:rgba(59,130,246,.1);color:#2563eb;border:1px solid rgba(59,130,246,.3)}
+.pub-tag.quente{background:rgba(239,68,68,.1);color:#dc2626;border:1px solid rgba(239,68,68,.3)}
+.pub-cac-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.pub-cac-val{font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--black)}
+.pub-bar-bg{background:var(--border);border-radius:4px;height:6px}
+.pub-bar-fill{height:6px;border-radius:4px}
+.pub-row{display:flex;justify-content:space-between;font-size:12px}
+.pub-row span:first-child{color:var(--muted)}
+.pub-row span:last-child{font-weight:600}
+.tabela-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:28px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl thead tr{background:var(--black);color:#fff}
+.tbl thead th{padding:12px 18px;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
+.tbl thead th.num{text-align:right}
+.tbl tbody tr{border-bottom:1px solid var(--border)}
+.tbl tbody tr:hover{background:var(--surface2)}
+.tbl tbody td{padding:12px 18px;vertical-align:middle}
+.tbl tbody td.num{text-align:right;font-weight:600}
+.cri-nome{font-weight:600;display:block}
+.cri-full{font-size:10px;color:var(--muted);display:block;margin-top:2px}
+.cac-bom{color:#16a34a}.cac-med{color:#d97706}.cac-ruim{color:#ef4444}
+.row-best{background:rgba(212,168,0,.06)!important}
+.footer{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 32px;display:flex;align-items:center;gap:24px;z-index:90}
+.footer-title{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);flex-shrink:0}
+.legend-items{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+@media(max-width:768px){
+  .header{padding:10px 14px;gap:8px}
+  .bignumbers{grid-template-columns:1fr 1fr;gap:10px}
+  .grid2{grid-template-columns:1fr}
+  .grid4{grid-template-columns:1fr 1fr}
+  .pub-grid{grid-template-columns:1fr}
+  .main{padding:14px 12px 0}
+  .tabs-nav{width:100%;overflow-x:auto}
+  .tab-btn{padding:7px 12px;font-size:11px;white-space:nowrap}
+  .bn-val{font-size:32px}
+}
+@media(max-width:480px){
+  .bignumbers{grid-template-columns:1fr}
+  .grid4{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Carregando dados...</div>
+</div>
+
+<div class="header">
+  <div class="header-left">
+    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI4IiBmaWxsPSIjZDRhODAwIi8+PHRleHQgeD0iNiIgeT0iMjMiIGZvbnQtZmFtaWx5PSJzZXJpZiIgZm9udC1zaXplPSIyMCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzAwMCI+QjE2PC90ZXh0Pjwvc3ZnPg==" alt="B16" style="height:28px">
+    <div class="vline"></div>
+    <div class="campaign-title">Farol e Forja — Juliano Cazarré</div>
+  </div>
+  <div class="header-center">
+    <div class="filter-group">
+      <span class="filter-label">Periodo</span>
+      <input type="date" id="filterStart">
+      <span class="filter-sep">até</span>
+      <input type="date" id="filterEnd">
+    </div>
+    <button class="btn-filter" onclick="applyFilters()">Aplicar</button>
+    <button class="btn-filter sec" onclick="resetFilters()">Limpar</button>
+  </div>
+  <div class="header-right">
+    <div id="statusBadge" class="status-badge loading"><div class="dot"></div><span>Carregando...</span></div>
+    <div>
+      <div class="upd-label">Ultima atualizacao</div>
+      <div class="upd-date" id="lastUpdate">-</div>
+      <div class="upd-next" id="nextUpdate">-</div>
+    </div>
+    <button class="btn-refresh btn-theme" id="btnTheme" onclick="toggleTheme()" title="Alternar tema" style="padding:7px 10px;font-size:15px">☀️</button>
+    <button class="btn-refresh" id="btnRefresh" onclick="fetchAll(true)">🔄 Atualizar</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="error-banner" id="errorBanner">⚠️ <div><strong>Erro ao carregar.</strong> <span id="errorMsg"></span></div></div>
+
+  <div class="tabs-nav">
+    <button class="tab-btn tab-active" id="tab-overview" onclick="switchTab('overview')">📊 Visao Geral</button>
+  </div>
+
+  <!-- VISAO GERAL -->
+  <div id="pane-overview">
+
+    <!-- BIG NUMBERS -->
+    <div class="section-label">Visao Geral</div>
+    <div class="bignumbers">
+      <div class="bn">
+        <div class="bn-lbl">Valor Investido</div>
+        <div class="bn-val" id="bnSpend" style="font-size:36px">-</div>
+        <div class="bn-sub" id="bnSpendSub">Campanhas Meta Ads</div>
+      </div>
+      <div class="bn">
+        <div class="bn-lbl">Total de Vendas</div>
+        <div class="bn-val" id="bnVendas">-</div>
+        <div class="bn-sub" id="bnVendasSub">status APPROVED</div>
+      </div>
+      <div class="bn">
+        <div class="bn-lbl">Faturamento</div>
+        <div class="bn-val" id="bnFat" style="font-size:34px">-</div>
+        <div class="bn-sub" id="bnFatSub">valor total aprovado</div>
+      </div>
+      <div class="bn">
+        <div class="bn-lbl">CAC</div>
+        <div class="bn-val" id="bnCAC" style="font-size:36px">-</div>
+        <div class="bn-sub">Investido / Vendas</div>
+      </div>
+      <div class="bn">
+        <div class="bn-lbl">🏆 Melhor CAC — Criativo</div>
+        <div class="bn-val" id="bnBestCAC" style="font-size:30px">-</div>
+        <div style="display:inline-block;background:var(--yellow-bg);border:1px solid rgba(212,168,0,.5);color:var(--yellow);font-size:10px;font-weight:700;padding:3px 9px;border-radius:4px;margin-top:7px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="bnBestCACName">-</div>
+        <div class="bn-sub" id="bnBestCACSub" style="margin-top:6px">-</div>
+      </div>
+    </div>
+
+    <!-- FUNIL -->
+    <div class="section-label">Funil de Conversao</div>
+    <div class="funnel-wrap">
+      <div class="funnel-steps">
+        <div class="funnel-trap" style="width:100%">
+          <div class="ft-left"><div class="ft-name">Impressoes</div><div class="ft-val" id="fImp">-</div></div>
+          <div class="ft-right"><div class="ft-cost" id="fCPM">-</div><div class="ft-cost-lbl">CPM (por 1.000)</div></div>
+        </div>
+        <div class="fc"><div class="fc-line"></div><div class="fc-tag" id="fRateAlc">-</div><div class="fc-line"></div></div>
+        <div class="funnel-trap" style="width:88%">
+          <div class="ft-left"><div class="ft-name">Alcance</div><div class="ft-val" id="fAlc">-</div></div>
+          <div class="ft-right"><div class="ft-cost" id="fCPA">-</div><div class="ft-cost-lbl">CP Alcance (por 1.000)</div></div>
+        </div>
+        <div class="fc"><div class="fc-line"></div><div class="fc-tag" id="fRateCTR">-</div><div class="fc-line"></div></div>
+        <div class="funnel-trap" style="width:72%">
+          <div class="ft-left"><div class="ft-name">Cliques</div><div class="ft-val" id="fClk">-</div></div>
+          <div class="ft-right"><div class="ft-cost" id="fCPC">-</div><div class="ft-cost-lbl">CPC</div></div>
+        </div>
+        <div class="fc"><div class="fc-line"></div><div class="fc-tag" id="fRateLPV">-</div><div class="fc-line"></div></div>
+        <div class="funnel-trap" style="width:55%">
+          <div class="ft-left"><div class="ft-name">Landing Page View</div><div class="ft-val" id="fLPV">-</div></div>
+          <div class="ft-right"><div class="ft-cost" id="fCPLPV">-</div><div class="ft-cost-lbl">Custo por LPV</div></div>
+        </div>
+        <div class="fc"><div class="fc-line"></div><div class="fc-tag" id="fRateChk">-</div><div class="fc-line"></div></div>
+        <div class="funnel-trap" style="width:38%">
+          <div class="ft-left"><div class="ft-name">Checkout Iniciado</div><div class="ft-val" id="fChk">-</div></div>
+          <div class="ft-right"><div class="ft-cost" id="fCPChk">-</div><div class="ft-cost-lbl">Custo por Checkout</div></div>
+        </div>
+        <div class="fc"><div class="fc-line"></div><div class="fc-tag" id="fRateVenda" style="color:var(--green)">-</div><div class="fc-line"></div></div>
+        <div class="funnel-trap green-row" style="width:24%">
+          <div class="ft-left"><div class="ft-name">Vendas</div><div class="ft-val" id="fVendas">-</div></div>
+          <div class="ft-right"><div class="ft-cost" id="fCAC">-</div><div class="ft-cost-lbl">CAC</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EVOLUCAO DIARIA -->
+    <div class="section-label">Evolucao Diaria</div>
+    <div class="grid2" style="margin-bottom:14px">
+      <div class="card"><div class="card-title">💰 Investimento × Faturamento por Dia</div><canvas id="cInvFat" height="170"></canvas></div>
+      <div class="card"><div class="card-title">🛒 Vendas por Dia</div><canvas id="cVendasDia" height="170"></canvas></div>
+    </div>
+    <div class="grid2" style="margin-bottom:28px">
+      <div class="card"><div class="card-title">📉 CAC por Dia</div><canvas id="cCACDia" height="170"></canvas></div>
+      <div class="card"><div class="card-title">🔵 Vendas por Origem (Pago vs Organico)</div><canvas id="cOrigemDia" height="170"></canvas></div>
+    </div>
+
+    <!-- DISTRIBUICAO POR ORIGEM -->
+    <div class="section-label">Distribuicao por Origem</div>
+    <div class="grid2" style="margin-bottom:28px">
+      <div class="card">
+        <div class="card-title">🛒 Vendas por Canal (utm_source)</div>
+        <div id="origemVendasBars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">💰 Investimento por Publico (Meta Ads)</div>
+        <div class="pub-grid" style="margin-bottom:0;gap:12px">
+          <div class="pub-card">
+            <div class="pub-head">
+              <div><div class="pub-cac-lbl">Investimento</div><div class="pub-cac-val" id="pubSpendFrio">-</div></div>
+              <div class="pub-tag frio">❄️ FRIO</div>
+            </div>
+            <div class="pub-bar-bg"><div class="pub-bar-fill" id="pubBarFrio" style="background:#3b82f6"></div></div>
+            <div class="pub-row"><span>% do total</span><span id="pubPctFrio">-</span></div>
+            <div class="pub-row"><span>CAC</span><span id="pubCACFrio">-</span></div>
+          </div>
+          <div class="pub-card">
+            <div class="pub-head">
+              <div><div class="pub-cac-lbl">Investimento</div><div class="pub-cac-val" id="pubSpendQuente">-</div></div>
+              <div class="pub-tag quente">🔥 QUENTE</div>
+            </div>
+            <div class="pub-bar-bg"><div class="pub-bar-fill" id="pubBarQuente" style="background:#ef4444"></div></div>
+            <div class="pub-row"><span>% do total</span><span id="pubPctQuente">-</span></div>
+            <div class="pub-row"><span>CAC</span><span id="pubCACQuente">-</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CRIATIVOS E DISTRIBUICAO -->
+    <div class="section-label">Criativos e Distribuicao</div>
+    <div class="grid2" style="margin-bottom:28px">
+      <div class="card">
+        <div class="card-title">💰 Investimento por Criativo (Meta Ads)</div>
+        <canvas id="cTopCriativos" height="160"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">🛒 Vendas por Criativo (utm_content)</div>
+        <canvas id="cVendasCriativos" height="160"></canvas>
+      </div>
+    </div>
+
+    <!-- PERFORMANCE POR CRIATIVO -->
+    <div class="section-label">Performance por Criativo</div>
+    <div class="tabela-wrap" style="margin-bottom:28px">
+      <table class="tbl" id="tabelaCriativos"></table>
+    </div>
+
+    <!-- CONJUNTOS E CAMPANHAS -->
+    <div class="section-label">Conjuntos de Anuncios e Campanhas</div>
+    <div class="grid2" style="margin-bottom:28px">
+      <div class="tabela-wrap" style="margin-bottom:0">
+        <div style="padding:14px 18px 0;font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted)">Por Conjunto de Anuncios</div>
+        <table class="tbl" id="tabelaAdsets"></table>
+      </div>
+      <div class="tabela-wrap" style="margin-bottom:0">
+        <div style="padding:14px 18px 0;font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted)">Por Campanha</div>
+        <table class="tbl" id="tabelaCampanhas"></table>
+      </div>
+    </div>
+
+    <!-- CAC POR PUBLICO -->
+    <div class="section-label">CAC por Publico</div>
+    <div class="pub-grid">
+      <div class="pub-card">
+        <div class="pub-head">
+          <div><div class="pub-cac-lbl">Custo por Venda</div><div class="pub-cac-val" id="pubCACFrioCard">-</div></div>
+          <div class="pub-tag frio">❄️ FRIO</div>
+        </div>
+        <div class="pub-bar-bg"><div class="pub-bar-fill" id="pubBarFrioCard" style="background:#3b82f6"></div></div>
+        <div class="pub-row"><span>Vendas</span><span id="pubVendasFrio">-</span></div>
+        <div class="pub-row"><span>Investido</span><span id="pubSpendFrioCard">-</span></div>
+        <div class="pub-row"><span>% do total</span><span id="pubPctFrioCard">-</span></div>
+      </div>
+      <div class="pub-card">
+        <div class="pub-head">
+          <div><div class="pub-cac-lbl">Custo por Venda</div><div class="pub-cac-val" id="pubCACQuenteCard">-</div></div>
+          <div class="pub-tag quente">🔥 QUENTE</div>
+        </div>
+        <div class="pub-bar-bg"><div class="pub-bar-fill" id="pubBarQuenteCard" style="background:#ef4444"></div></div>
+        <div class="pub-row"><span>Vendas</span><span id="pubVendasQuente">-</span></div>
+        <div class="pub-row"><span>Investido</span><span id="pubSpendQuenteCard">-</span></div>
+        <div class="pub-row"><span>% do total</span><span id="pubPctQuenteCard">-</span></div>
+      </div>
+    </div>
+
+  </div><!-- /pane-overview -->
+</div>
+
+<div class="footer">
+  <span class="footer-title">Legenda</span>
+  <div class="legend-items">
+    <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div><span><strong style="color:#16a34a">Verde</strong> - CAC abaixo de R$100 · Positivo</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div><span><strong style="color:#d97706">Amarelo</strong> - CAC R$100-300 · Atencao</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div><span><strong style="color:#ef4444">Vermelho</strong> - CAC acima de R$300 · Alerta</span></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIGURACAO ──────────────────────────────────────────────────────────────
+const WORKER_URL  = 'https://farol-e-forja-webhook.SEU-SUBDOMINIO.workers.dev';
+const SHEET_META  = 'meta_ads';
+const SHEET_TAMB  = 'tamborete';
+const REFRESH_MS  = 2 * 60 * 60 * 1000;
+const DEFAULT_START = '2026-06-20';
+
+const csvURL = function(s) {
+  return WORKER_URL + '?sheet=' + encodeURIComponent(s);
+};
+
+var charts = {};
+var refreshTimer = null;
+var nextRefreshAt = null;
+var countdownTimer = null;
+var cachedMeta = [];
+var cachedTamb = [];
+var _activeFilters = {d1:'', d2:''};
+
+// ── CSV PARSER ────────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  var raw = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  var lines = raw.trim().split('\n');
+  if (lines.length < 2) return [];
+  function splitLine(line) {
+    var vals=[], cur='', inQ=false;
+    for (var i=0;i<line.length;i++) {
+      var ch=line[i];
+      if (ch==='"') { if(inQ&&line[i+1]==='"'){cur+='"';i++;} else inQ=!inQ; }
+      else if (ch===','&&!inQ) { vals.push(cur.trim()); cur=''; }
+      else cur+=ch;
+    }
+    vals.push(cur.trim());
+    return vals;
+  }
+  var headers = splitLine(lines[0]).map(function(h){return h.replace(/^"|"$/g,'').trim();});
+  var rows=[];
+  for (var i=1;i<lines.length;i++) {
+    if (!lines[i].trim()) continue;
+    var vals=splitLine(lines[i]);
+    var obj={};
+    for (var j=0;j<headers.length;j++) obj[headers[j]]=(vals[j]||'').replace(/^"|"$/g,'').trim();
+    rows.push(obj);
+  }
+  return rows;
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function fBRL(v) { return 'R$\u00a0'+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fNum(v) { return Number(v).toLocaleString('pt-BR'); }
+function fPct(v) { return Number(v).toFixed(1)+'%'; }
+function setEl(id,val){var e=document.getElementById(id);if(e)e.textContent=val;}
+function setHtml(id,val){var e=document.getElementById(id);if(e)e.innerHTML=val;}
+function cacCor(v){ return v>0&&v<100?'#16a34a':v>=100&&v<300?'#d97706':'#ef4444'; }
+
+function numFromRow(r,key) {
+  var val=r[key];
+  if (val===undefined||val==='') {
+    var kl=key.toLowerCase().split('(')[0].trim();
+    var keys=Object.keys(r);
+    for (var i=0;i<keys.length;i++){if(keys[i].toLowerCase().indexOf(kl)>=0){val=r[keys[i]];break;}}
+  }
+  if (!val) return 0;
+  return parseFloat(String(val).replace(/[^0-9,.-]/g,'').replace(',','.')) || 0;
+}
+
+function mkChart(id,cfg) {
+  if (charts[id]) { try{charts[id].destroy();}catch(e){} }
+  var el=document.getElementById(id);
+  if (!el) return;
+  try{charts[id]=new Chart(el,cfg);}catch(e){console.warn('Chart error '+id,e);}
+}
+
+var G = {color:'rgba(0,0,0,0.06)',lineWidth:1};
+Chart.defaults.color='#888';
+Chart.defaults.font.family='DM Sans';
+
+// ── PROCESSAR META ADS ────────────────────────────────────────────────────────
+function processMeta(rows, d1, d2) {
+  var spend=0,reach=0,imp=0,clk=0,lpv=0,chk=0;
+  var spendFrio=0,spendQuente=0;
+  var byDay={}, metaByAd={}, byAdset={}, byCamp={};
+
+  rows.forEach(function(r) {
+    var d=(r['Date']||'').trim();
+    if (d<d1||d>d2) return;
+    var s=numFromRow(r,'Spend (Cost, Amount Spent)');
+    var campName=(r['Campaign Name']||'').toUpperCase();
+    spend+=s; reach+=parseInt(r['Reach (Estimated)']||0);
+    imp+=parseInt(r['Impressions']||0);
+    clk+=parseInt(r['Inline Link Clicks']||0);
+    lpv+=numFromRow(r,'Action Landing Page View');
+    chk+=numFromRow(r,'Action FB Pixel Initiate Checkout (Offsite Conversion)');
+
+    if (!byDay[d]) byDay[d]={spend:0};
+    byDay[d].spend+=s;
+
+    if (campName.indexOf('FRIO')>=0)   spendFrio+=s;
+    if (campName.indexOf('QUENTE')>=0) spendQuente+=s;
+
+    var ad=(r['Ad Name']||'').trim();
+    if (ad){if(!metaByAd[ad])metaByAd[ad]=0;metaByAd[ad]+=s;}
+
+    var adset=(r['Adset Name']||r['Ad Set Name']||'').trim();
+    if (adset){if(!byAdset[adset])byAdset[adset]={spend:0};byAdset[adset].spend+=s;}
+
+    var camp=(r['Campaign Name']||'').trim();
+    if (camp){if(!byCamp[camp])byCamp[camp]={spend:0};byCamp[camp].spend+=s;}
+  });
+
+  return {spend:spend,reach:reach,imp:imp,clk:clk,lpv:lpv,chk:chk,
+          spendFrio:spendFrio,spendQuente:spendQuente,
+          byDay:byDay,metaByAd:metaByAd,byAdset:byAdset,byCamp:byCamp};
+}
+
+// ── PROCESSAR TAMBORETE ───────────────────────────────────────────────────────
+function processTamborete(rows, d1, d2) {
+  var vendas=0,fat=0;
+  var byDay={}, byUTMSource={}, byUTMContent={};
+  var paidRefs={};
+
+  rows.forEach(function(r) {
+    var data=(r['created_at']||'').trim().slice(0,10);
+    if (!data||data<d1||data>d2) return;
+    var status=(r['order_status']||'').trim().toUpperCase();
+    var ref=(r['order_ref']||r['uuid']||'').trim();
+    var amount=parseFloat(r['amount']||0);
+    var src=(r['utm_source']||'').trim();
+    var cont=(r['utm_content']||'').trim();
+
+    if (status==='APPROVED'&&ref&&!paidRefs[ref]) {
+      paidRefs[ref]=true;
+      vendas++;
+      fat+=amount;
+      if (!byDay[data]) byDay[data]={vendas:0,fat:0,pago:0,org:0};
+      byDay[data].vendas++;
+      byDay[data].fat+=amount;
+      if (src) {byDay[data].pago++;} else {byDay[data].org++;}
+      var srcKey=src||'Sem tracking';
+      if (!byUTMSource[srcKey]) byUTMSource[srcKey]=0; byUTMSource[srcKey]++;
+      var contKey=cont||'Sem tracking';
+      if (!byUTMContent[contKey]) byUTMContent[contKey]=0; byUTMContent[contKey]++;
+    }
+  });
+
+  return {vendas:vendas,fat:fat,byDay:byDay,byUTMSource:byUTMSource,byUTMContent:byUTMContent};
+}
+
+// ── FILTROS ───────────────────────────────────────────────────────────────────
+function getFilters() {
+  return {
+    d1: document.getElementById('filterStart').value,
+    d2: document.getElementById('filterEnd').value
+  };
+}
+
+function applyFilters() {
+  var f=getFilters();
+  if (!f.d1||!f.d2){alert('Selecione o periodo.');return;}
+  _activeFilters=f;
+  var m=processMeta(cachedMeta,f.d1,f.d2);
+  var t=processTamborete(cachedTamb,f.d1,f.d2);
+  renderDashboard(m,t);
+}
+
+function resetFilters() {
+  var today=new Date().toISOString().slice(0,10);
+  document.getElementById('filterStart').value=DEFAULT_START;
+  document.getElementById('filterEnd').value=today;
+  document.getElementById('compStart') && (document.getElementById('compStart').value='');
+  document.getElementById('compEnd')   && (document.getElementById('compEnd').value='');
+  applyFilters();
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderDashboard(m, t) {
+  var spend=m.spend,reach=m.reach,imp=m.imp,clk=m.clk,lpv=m.lpv,chk=m.chk;
+  var vendas=t.vendas,fat=t.fat;
+
+  // Métricas
+  var cac    = vendas>0 ? spend/vendas : 0;
+  var cpm    = imp>0   ? spend/imp*1000 : 0;
+  var cpa    = reach>0 ? spend/reach*1000 : 0;
+  var cpc    = clk>0   ? spend/clk : 0;
+  var cpLPV  = lpv>0   ? spend/lpv : 0;
+  var cpChk  = chk>0   ? spend/chk : 0;
+  var rAlc   = imp>0   ? reach/imp*100 : 0;
+  var ctr    = imp>0   ? clk/imp*100 : 0;
+  var rLPV   = clk>0   ? lpv/clk*100 : 0;
+  var rChk   = lpv>0   ? chk/lpv*100 : 0;
+  var rVenda = chk>0   ? vendas/chk*100 : 0;
+
+  // ── BIG NUMBERS ─────────────────────────────────────────────────────────────
+  setEl('bnSpend', fBRL(spend));
+  setEl('bnSpendSub', 'Meta Ads · periodo selecionado');
+  setEl('bnVendas', fNum(vendas));
+  setEl('bnVendasSub', 'transacoes APPROVED');
+  setEl('bnFat', fBRL(fat));
+  setEl('bnFatSub', vendas+' vendas confirmadas');
+  setEl('bnCAC', cac>0 ? fBRL(cac) : '-');
+
+  // Melhor CAC por criativo (Ad Name Meta × vendas utm_content Tamborete)
+  var bestCAC=Infinity, bestAd='-', bestVendas=0, bestSpend=0;
+  Object.keys(t.byUTMContent).forEach(function(cont){
+    var v=t.byUTMContent[cont];
+    var s=m.metaByAd[cont]||0;
+    if (s===0||v===0) return;
+    var c=s/v;
+    if (c<bestCAC){bestCAC=c;bestAd=cont;bestVendas=v;bestSpend=s;}
+  });
+  setEl('bnBestCAC', bestCAC<Infinity ? fBRL(bestCAC) : '-');
+  setEl('bnBestCACName', bestAd);
+  setEl('bnBestCACSub', bestVendas+' vendas · '+fBRL(bestSpend)+' investidos');
+
+  // ── FUNIL ────────────────────────────────────────────────────────────────────
+  setEl('fImp', fNum(imp));   setEl('fCPM', fBRL(cpm));
+  setEl('fAlc', fNum(reach)); setEl('fCPA', fBRL(cpa));
+  setEl('fClk', fNum(clk));   setEl('fCPC', fBRL(cpc));
+  setEl('fLPV', fNum(lpv));   setEl('fCPLPV', fBRL(cpLPV));
+  setEl('fChk', fNum(Math.round(chk))); setEl('fCPChk', fBRL(cpChk));
+  setEl('fVendas', fNum(vendas)); setEl('fCAC', fBRL(cac));
+  setEl('fRateAlc',  'Alcance / Impressoes · '+fPct(rAlc));
+  setEl('fRateCTR',  'CTR · '+ctr.toFixed(2)+'%');
+  setEl('fRateLPV',  fPct(rLPV)+' dos cliques');
+  setEl('fRateChk',  fPct(rChk)+' do LPV');
+  setEl('fRateVenda',fPct(rVenda)+' dos checkouts');
+
+  // ── EVOLUCAO DIARIA ─────────────────────────────────────────────────────────
+  var daysSet={};
+  Object.keys(m.byDay).forEach(function(d){daysSet[d]=1;});
+  Object.keys(t.byDay).forEach(function(d){daysSet[d]=1;});
+  var allDays=Object.keys(daysSet).sort();
+  var lbls=allDays.map(function(d){var p=d.split('-');return p[2]+'/'+p[1];});
+  var spendArr=allDays.map(function(d){return m.byDay[d]?m.byDay[d].spend:0;});
+  var vendasArr=allDays.map(function(d){return t.byDay[d]?t.byDay[d].vendas:0;});
+  var fatArr=allDays.map(function(d){return t.byDay[d]?t.byDay[d].fat:0;});
+  var cacArr=allDays.map(function(d,i){return vendasArr[i]>0?+(spendArr[i]/vendasArr[i]).toFixed(2):null;});
+  var pagArr=allDays.map(function(d){return t.byDay[d]?t.byDay[d].pago:0;});
+  var orgArr=allDays.map(function(d){return t.byDay[d]?t.byDay[d].org:0;});
+
+  // Gráfico 1: Investimento × Faturamento
+  mkChart('cInvFat',{type:'line',data:{labels:lbls,datasets:[
+    {label:'Investimento',data:spendArr,borderColor:'#d4a800',backgroundColor:'rgba(212,168,0,.08)',borderWidth:2,pointRadius:4,fill:true,tension:.3,yAxisID:'y'},
+    {label:'Faturamento', data:fatArr,  borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.06)',borderWidth:2,pointRadius:4,fill:true,tension:.3,yAxisID:'y'}
+  ]},options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},scales:{x:{grid:G},y:{grid:G,beginAtZero:true,ticks:{callback:function(v){return 'R$'+(v>=1000?(v/1000).toFixed(0)+'k':v.toFixed(0));}}}}}});
+
+  // Gráfico 2: Vendas por dia
+  mkChart('cVendasDia',{type:'bar',data:{labels:lbls,datasets:[{data:vendasArr,backgroundColor:'rgba(212,168,0,.7)',borderRadius:5,borderSkipped:false}]},options:{plugins:{legend:{display:false}},scales:{x:{grid:G},y:{grid:G,beginAtZero:true}}}});
+
+  // Gráfico 3: CAC por dia
+  mkChart('cCACDia',{type:'line',data:{labels:lbls,datasets:[{data:cacArr,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.07)',borderWidth:2.5,pointRadius:5,fill:true,tension:.3,spanGaps:true}]},options:{plugins:{legend:{display:false}},scales:{x:{grid:G},y:{grid:G,min:0,ticks:{callback:function(v){return 'R$'+v.toFixed(0);}}}}}});
+
+  // Gráfico 4: Vendas por origem
+  mkChart('cOrigemDia',{type:'bar',data:{labels:lbls,datasets:[
+    {label:'Pago',    data:pagArr,backgroundColor:'rgba(212,168,0,.75)',borderRadius:4,stack:'s'},
+    {label:'Organico',data:orgArr,backgroundColor:'rgba(100,100,100,.4)',borderRadius:4,stack:'s'}
+  ]},options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},scales:{x:{grid:G,stacked:true},y:{grid:G,beginAtZero:true,stacked:true}}}});
+
+  // ── DISTRIBUICAO POR ORIGEM ──────────────────────────────────────────────────
+  // Barras horizontais utm_source
+  var srcEl=document.getElementById('origemVendasBars');
+  if (srcEl) {
+    var srcEntries=Object.entries(t.byUTMSource).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+    var srcTot=srcEntries.reduce(function(s,e){return s+e[1];},0)||1;
+    srcEl.innerHTML=srcEntries.map(function(e){
+      var pct=(e[1]/srcTot*100).toFixed(1);
+      return '<div style="margin-bottom:10px">'
+        +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'
+        +'<span style="color:var(--text);font-weight:500">'+(e[0]||'(vazio)')+'</span>'
+        +'<span style="font-weight:700">'+e[1]+' <span style="color:var(--muted);font-size:10px">'+pct+'%</span></span></div>'
+        +'<div style="background:var(--border);border-radius:3px;height:7px">'
+        +'<div style="width:'+pct+'%;height:7px;border-radius:3px;background:var(--yellow)"></div></div>'
+        +'</div>';
+    }).join('') || '<div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Sem dados UTM no periodo</div>';
+  }
+
+  // Investimento por público
+  var totalSpend=spend||1;
+  var pctF=(m.spendFrio/totalSpend*100).toFixed(1);
+  var pctQ=(m.spendQuente/totalSpend*100).toFixed(1);
+  var cacFrio=m.spendFrio>0&&t.vendas>0?m.spendFrio/t.vendas:0;
+  var cacQuente=m.spendQuente>0&&t.vendas>0?m.spendQuente/t.vendas:0;
+  setEl('pubSpendFrio',fBRL(m.spendFrio));setEl('pubPctFrio',pctF+'%');setEl('pubCACFrio',cacFrio>0?fBRL(cacFrio):'-');
+  setEl('pubSpendQuente',fBRL(m.spendQuente));setEl('pubPctQuente',pctQ+'%');setEl('pubCACQuente',cacQuente>0?fBRL(cacQuente):'-');
+  var bf=document.getElementById('pubBarFrio');if(bf)bf.style.width=pctF+'%';
+  var bq=document.getElementById('pubBarQuente');if(bq)bq.style.width=pctQ+'%';
+
+  // ── CRIATIVOS ────────────────────────────────────────────────────────────────
+  // Top investimento por criativo (Meta Ads)
+  var adEntries=Object.entries(m.metaByAd).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+  mkChart('cTopCriativos',{type:'bar',data:{labels:adEntries.map(function(e){return e[0].replace(/^\d+\s*-\s*(VID\s*-\s*)?/i,'').trim().slice(0,30);}),datasets:[{data:adEntries.map(function(e){return e[1];}),backgroundColor:['#d4a800','rgba(212,168,0,.75)','rgba(212,168,0,.5)','rgba(212,168,0,.35)','rgba(212,168,0,.2)'],borderRadius:5,barThickness:20}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:G,ticks:{callback:function(v){return 'R$'+(v>=1000?(v/1000).toFixed(0)+'k':v);}}},y:{grid:{display:false}}}}});
+
+  // Top vendas por criativo (utm_content Tamborete)
+  var contEntries=Object.entries(t.byUTMContent).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+  mkChart('cVendasCriativos',{type:'bar',data:{labels:contEntries.map(function(e){return e[0].slice(0,30);}),datasets:[{data:contEntries.map(function(e){return e[1];}),backgroundColor:['#16a34a','rgba(22,163,74,.75)','rgba(22,163,74,.5)','rgba(22,163,74,.35)','rgba(22,163,74,.2)'],borderRadius:5,barThickness:20}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:G},y:{grid:{display:false}}}}});
+
+  // Tabela performance por criativo
+  var allCont=Object.keys(t.byUTMContent).length>0?Object.keys(t.byUTMContent):Object.keys(m.metaByAd);
+  var allCriRows=allCont.map(function(key){
+    var v=t.byUTMContent[key]||0;
+    var s=m.metaByAd[key]||0;
+    var c=v>0&&s>0?s/v:0;
+    return {key:key,vendas:v,spend:s,cac:c};
+  }).sort(function(a,b){return b.vendas-a.vendas;});
+
+  var minCAC=Infinity;
+  allCriRows.forEach(function(r){if(r.cac>0&&r.cac<minCAC)minCAC=r.cac;});
+
+  var tblRows=allCriRows.map(function(r){
+    var best=r.cac>0&&Math.abs(r.cac-minCAC)<0.01;
+    var cls=r.cac>0&&r.cac<100?'cac-bom':r.cac>=100&&r.cac<300?'cac-med':'cac-ruim';
+    return '<tr class="'+(best?'row-best':'')+'"><td><span class="cri-nome">'+r.key+(best?' 🏆':'')+'</span></td>'
+      +'<td class="num">'+fBRL(r.spend)+'</td>'
+      +'<td class="num">'+r.vendas+'</td>'
+      +'<td class="num '+cls+'">'+(r.cac>0?fBRL(r.cac):'-')+'</td></tr>';
+  }).join('');
+  var tbl=document.getElementById('tabelaCriativos');
+  if(tbl) tbl.innerHTML='<thead><tr><th>Criativo</th><th class="num">Investimento</th><th class="num">Vendas</th><th class="num">CAC</th></tr></thead><tbody>'+(tblRows||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sem dados</td></tr>')+'</tbody>';
+
+  // Tabela adsets
+  var adsetRows=Object.entries(m.byAdset).sort(function(a,b){return b[1].spend-a[1].spend;}).map(function(e){
+    return '<tr><td><span class="cri-nome">'+e[0]+'</span></td><td class="num">'+fBRL(e[1].spend)+'</td></tr>';
+  }).join('');
+  var tblA=document.getElementById('tabelaAdsets');
+  if(tblA) tblA.innerHTML='<thead><tr><th>Conjunto</th><th class="num">Investimento</th></tr></thead><tbody>'+(adsetRows||'<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:16px">Sem dados</td></tr>')+'</tbody>';
+
+  // Tabela campanhas
+  var campRows=Object.entries(m.byCamp).sort(function(a,b){return b[1].spend-a[1].spend;}).map(function(e){
+    return '<tr><td><span class="cri-nome">'+e[0]+'</span></td><td class="num">'+fBRL(e[1].spend)+'</td></tr>';
+  }).join('');
+  var tblC=document.getElementById('tabelaCampanhas');
+  if(tblC) tblC.innerHTML='<thead><tr><th>Campanha</th><th class="num">Investimento</th></tr></thead><tbody>'+(campRows||'<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:16px">Sem dados</td></tr>')+'</tbody>';
+
+  // ── CAC POR PUBLICO ──────────────────────────────────────────────────────────
+  var totalV=vendas||1;
+  var pctFrioCard=(m.spendFrio/spend*100||0).toFixed(1);
+  var pctQuenteCard=(m.spendQuente/spend*100||0).toFixed(1);
+  // Estimar vendas por público proporcional ao spend
+  var vendasFrio   = spend>0?Math.round(vendas*m.spendFrio/spend):0;
+  var vendasQuente = spend>0?Math.round(vendas*m.spendQuente/spend):0;
+  var cacFrioCard   = vendasFrio>0 ? m.spendFrio/vendasFrio : 0;
+  var cacQuenteCard = vendasQuente>0 ? m.spendQuente/vendasQuente : 0;
+
+  setEl('pubCACFrioCard',  cacFrioCard>0  ? fBRL(cacFrioCard)  : '-');
+  setEl('pubCACQuenteCard',cacQuenteCard>0? fBRL(cacQuenteCard): '-');
+  setEl('pubVendasFrio',   vendasFrio);
+  setEl('pubVendasQuente', vendasQuente);
+  setEl('pubSpendFrioCard',fBRL(m.spendFrio));
+  setEl('pubSpendQuenteCard',fBRL(m.spendQuente));
+  setEl('pubPctFrioCard',   pctFrioCard+'%');
+  setEl('pubPctQuenteCard', pctQuenteCard+'%');
+  var bfC=document.getElementById('pubBarFrioCard');   if(bfC)bfC.style.width=pctFrioCard+'%';
+  var bqC=document.getElementById('pubBarQuenteCard'); if(bqC)bqC.style.width=pctQuenteCard+'%';
+}
+
+// ── TEMA ──────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  var html=document.documentElement;
+  var btn=document.getElementById('btnTheme');
+  var dark=html.classList.toggle('dark');
+  if(btn) btn.textContent=dark?'🌙':'☀️';
+  try{localStorage.setItem('fef-theme',dark?'dark':'light');}catch(e){}
+}
+(function(){
+  try{
+    var t=localStorage.getItem('fef-theme');
+    if(t==='dark'){document.documentElement.classList.add('dark');var btn=document.getElementById('btnTheme');if(btn)btn.textContent='🌙';}
+  }catch(e){}
+})();
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  var tabs=['overview'];
+  tabs.forEach(function(t){
+    var btn=document.getElementById('tab-'+t);
+    var pane=document.getElementById('pane-'+t);
+    if(btn) btn.classList.toggle('tab-active',t===tab);
+    if(pane) pane.style.display=t===tab?'block':'none';
+  });
+}
+
+// ── FETCH ─────────────────────────────────────────────────────────────────────
+function fetchAll(manual) {
+  var btn=document.getElementById('btnRefresh');
+  var overlay=document.getElementById('loadingOverlay');
+  var badge=document.getElementById('statusBadge');
+  var errBan=document.getElementById('errorBanner');
+
+  if(btn){btn.classList.add('loading');btn.innerHTML='<span class="spin">🔄</span> Atualizando...';}
+  if(badge){badge.className='status-badge loading';badge.innerHTML='<div class="dot"></div><span>Carregando...</span>';}
+  if(errBan) errBan.classList.remove('show');
+
+  var urls=[csvURL(SHEET_META),csvURL(SHEET_TAMB)];
+  var TOTAL=2,results=[],done=0;
+
+  var safetyTimer=setTimeout(function(){
+    if(done<TOTAL){console.warn('[FEF] Timeout — forcando render');done=TOTAL;onDone();}
+  },20000);
+
+  function onDone(){
+    done++;
+    if(done<TOTAL) return;
+    clearTimeout(safetyTimer);
+    if(overlay) overlay.classList.add('hidden');
+    if(btn){btn.classList.remove('loading');btn.innerHTML='🔄 Atualizar';}
+    setTimeout(function(){
+      try{
+        cachedMeta=parseCSV(results[0]||'');
+        cachedTamb=parseCSV(results[1]||'');
+        resetFilters();
+        var now=new Date();
+        var fmt=function(d){return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});};
+        setEl('lastUpdate',fmt(now));
+        nextRefreshAt=new Date(now.getTime()+REFRESH_MS);
+        if(badge){badge.className='status-badge ok';badge.innerHTML='<div class="dot"></div><span>Ao vivo</span>';}
+      }catch(e){
+        console.error('[FEF]',e);
+        if(badge){badge.className='status-badge error';badge.innerHTML='<div class="dot"></div><span>Erro</span>';}
+        if(errBan){errBan.classList.add('show');setEl('errorMsg',e.message);}
+      }
+      clearTimeout(refreshTimer);
+      refreshTimer=setTimeout(function(){fetchAll(false);},REFRESH_MS);
+    },50);
+  }
+
+  for(var i=0;i<urls.length;i++){
+    (function(idx){
+      fetch(urls[idx]+'&cb='+Date.now(),{cache:'no-store'})
+        .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+        .then(function(text){results[idx]=text;onDone();})
+        .catch(function(e){console.error('[FEF] fetch '+idx,e);results[idx]='';onDone();});
+    })(i);
+  }
+}
+
+function startCountdown(){
+  clearInterval(countdownTimer);
+  countdownTimer=setInterval(function(){
+    if(!nextRefreshAt) return;
+    var diff=nextRefreshAt-Date.now();
+    if(diff<=0) return;
+    var h=Math.floor(diff/3600000),mn=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
+    function pad(n){return String(n).padStart(2,'0');}
+    setEl('nextUpdate','Prox em '+pad(h)+':'+pad(mn)+':'+pad(s));
+  },1000);
+}
+
+fetchAll(false);
+startCountdown();
+</script>
+</body>
+</html>
