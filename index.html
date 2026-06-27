@@ -66,9 +66,6 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
 .bn-lbl{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
 .bn-val{font-family:'Bebas Neue',sans-serif;font-size:46px;color:var(--black);line-height:1}
 .bn-sub{font-size:11px;color:var(--muted);margin-top:5px}
-.bn-delta{font-size:11px;margin-top:6px;min-height:16px}
-.delta-up{color:#16a34a;font-weight:600}
-.delta-down{color:#ef4444;font-weight:600}
 .funnel-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px 40px;margin-bottom:28px}
 .funnel-steps{display:flex;flex-direction:column;align-items:center}
 .funnel-trap{background:linear-gradient(135deg,var(--yellow) 0%,#c49200 100%);border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:64px;margin:0 auto;clip-path:polygon(3% 0%,97% 0%,100% 100%,0% 100%)}
@@ -185,12 +182,12 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
       <div class="bn">
         <div class="bn-lbl">Valor Investido</div>
         <div class="bn-val" id="bnSpend" style="font-size:36px">-</div>
-        <div class="bn-sub" id="bnSpendSub">Campanhas Meta Ads</div>
+        <div class="bn-sub" id="bnSpendSub">Meta Ads · periodo selecionado</div>
       </div>
       <div class="bn">
         <div class="bn-lbl">Total de Vendas</div>
         <div class="bn-val" id="bnVendas">-</div>
-        <div class="bn-sub" id="bnVendasSub">status APPROVED</div>
+        <div class="bn-sub" id="bnVendasSub">transacoes APPROVED</div>
       </div>
       <div class="bn">
         <div class="bn-lbl">Faturamento</div>
@@ -261,7 +258,7 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
     <div class="section-label">Distribuicao por Origem</div>
     <div class="grid2" style="margin-bottom:28px">
       <div class="card">
-        <div class="card-title">🛒 Vendas por Canal (utm_source)</div>
+        <div class="card-title">🛒 Vendas por Canal (origem_1)</div>
         <div id="origemVendasBars"></div>
       </div>
       <div class="card">
@@ -293,11 +290,11 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
     <div class="section-label">Criativos e Distribuicao</div>
     <div class="grid2" style="margin-bottom:28px">
       <div class="card">
-        <div class="card-title">💰 Investimento por Criativo (Meta Ads)</div>
+        <div class="card-title">💰 Investimento por Criativo (Meta Ads — Ad Name)</div>
         <canvas id="cTopCriativos" height="160"></canvas>
       </div>
       <div class="card">
-        <div class="card-title">🛒 Vendas por Criativo (utm_content)</div>
+        <div class="card-title">🛒 Vendas por Criativo (origem_4)</div>
         <canvas id="cVendasCriativos" height="160"></canvas>
       </div>
     </div>
@@ -360,11 +357,18 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
 
 <script>
 // ── CONFIGURACAO ──────────────────────────────────────────────────────────────
-const WORKER_URL  = 'https://farol-e-forja-webhook.henrscard.workers.dev';
-const SHEET_META  = 'meta_ads';
-const SHEET_TAMB  = 'tamborete';
-const REFRESH_MS  = 2 * 60 * 60 * 1000;
-const DEFAULT_START = '2026-06-20';
+const WORKER_URL    = 'https://farol-e-forja-webhook.henrscard.workers.dev';
+const SHEET_META    = 'meta_ads';
+const SHEET_TAMB    = 'tamborete_silver';
+const REFRESH_MS    = 60 * 60 * 1000; // 1 hora
+const DEFAULT_START = '2026-04-27';
+
+// Data de fim default = ontem
+function yesterday() {
+  var d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
 
 const csvURL = function(s) {
   return WORKER_URL + '?sheet=' + encodeURIComponent(s);
@@ -444,29 +448,32 @@ function processMeta(rows, d1, d2) {
 
   rows.forEach(function(r) {
     var d=(r['Date']||'').trim();
-    if (d<d1||d>d2) return;
-    var s=numFromRow(r,'Spend (Cost, Amount Spent)');
+    if (!d||d<d1||d>d2) return;
+
+    var s = numFromRow(r,'Spend (Cost, Amount Spent)');
     var campName=(r['Campaign Name']||'').toUpperCase();
-    spend+=s; reach+=parseInt(r['Reach (Estimated)']||0);
-    imp+=parseInt(r['Impressions']||0);
-    clk+=parseInt(r['Inline Link Clicks']||0);
-    lpv+=numFromRow(r,'Action Landing Page View');
-    chk+=numFromRow(r,'Action FB Pixel Initiate Checkout (Offsite Conversion)');
+
+    spend   += s;
+    reach   += parseInt(r['Reach (Estimated)']||0);
+    imp     += parseInt(r['Impressions']||0);
+    clk     += parseInt(r['Inline Link Clicks']||0);
+    lpv     += numFromRow(r,'Action Landing Page View');
+    chk     += numFromRow(r,'Action FB Pixel Initiate Checkout (Offsite Conversion)');
 
     if (!byDay[d]) byDay[d]={spend:0};
-    byDay[d].spend+=s;
+    byDay[d].spend += s;
 
-    if (campName.indexOf('FRIO')>=0)   spendFrio+=s;
-    if (campName.indexOf('QUENTE')>=0) spendQuente+=s;
+    if (campName.indexOf('FRIO')>=0)   spendFrio   += s;
+    if (campName.indexOf('QUENTE')>=0) spendQuente += s;
 
     var ad=(r['Ad Name']||'').trim();
-    if (ad){if(!metaByAd[ad])metaByAd[ad]=0;metaByAd[ad]+=s;}
+    if (ad){if(!metaByAd[ad])metaByAd[ad]=0; metaByAd[ad]+=s;}
 
     var adset=(r['Adset Name']||r['Ad Set Name']||'').trim();
-    if (adset){if(!byAdset[adset])byAdset[adset]={spend:0};byAdset[adset].spend+=s;}
+    if (adset){if(!byAdset[adset])byAdset[adset]={spend:0}; byAdset[adset].spend+=s;}
 
     var camp=(r['Campaign Name']||'').trim();
-    if (camp){if(!byCamp[camp])byCamp[camp]={spend:0};byCamp[camp].spend+=s;}
+    if (camp){if(!byCamp[camp])byCamp[camp]={spend:0}; byCamp[camp].spend+=s;}
   });
 
   return {spend:spend,reach:reach,imp:imp,clk:clk,lpv:lpv,chk:chk,
@@ -474,37 +481,44 @@ function processMeta(rows, d1, d2) {
           byDay:byDay,metaByAd:metaByAd,byAdset:byAdset,byCamp:byCamp};
 }
 
-// ── PROCESSAR TAMBORETE ───────────────────────────────────────────────────────
+// ── PROCESSAR TAMBORETE SILVER ────────────────────────────────────────────────
+// Colunas: id_transacao, status_transacao, data_transacao, id_produto,
+//          nome_produto, qtd_produto, origem_1, origem_2, origem_3,
+//          origem_4 (criativo), origem_5, valor_transacao
 function processTamborete(rows, d1, d2) {
   var vendas=0,fat=0;
-  var byDay={}, byUTMSource={}, byUTMContent={};
-  var paidRefs={};
+  var byDay={}, byOrigem1={}, byOrigem4={};
+  var seenIds={};
 
   rows.forEach(function(r) {
-    var data=(r['created_at']||'').trim().slice(0,10);
+    var data=(r['data_transacao']||'').trim().slice(0,10);
     if (!data||data<d1||data>d2) return;
-    var status=(r['order_status']||'').trim().toUpperCase();
-    var ref=(r['order_ref']||r['uuid']||'').trim();
-    var amount=parseFloat(r['amount']||0);
-    var src=(r['utm_source']||'').trim();
-    var cont=(r['utm_content']||'').trim();
 
-    if (status==='APPROVED'&&ref&&!paidRefs[ref]) {
-      paidRefs[ref]=true;
+    var status=(r['status_transacao']||'').trim().toUpperCase();
+    var id=(r['id_transacao']||'').trim();
+    var amount=parseFloat((r['valor_transacao']||'0').replace(',','.'));
+    var o1=(r['origem_1']||'').trim();   // utm_source equivalente
+    var o4=(r['origem_4']||'').trim();   // utm_content / criativo equivalente
+
+    if (status==='APPROVED' && id && !seenIds[id]) {
+      seenIds[id]=true;
       vendas++;
       fat+=amount;
+
       if (!byDay[data]) byDay[data]={vendas:0,fat:0,pago:0,org:0};
       byDay[data].vendas++;
       byDay[data].fat+=amount;
-      if (src) {byDay[data].pago++;} else {byDay[data].org++;}
-      var srcKey=src||'Sem tracking';
-      if (!byUTMSource[srcKey]) byUTMSource[srcKey]=0; byUTMSource[srcKey]++;
-      var contKey=cont||'Sem tracking';
-      if (!byUTMContent[contKey]) byUTMContent[contKey]=0; byUTMContent[contKey]++;
+      if (o1) byDay[data].pago++; else byDay[data].org++;
+
+      var o1Key=o1||'Sem tracking';
+      if (!byOrigem1[o1Key]) byOrigem1[o1Key]=0; byOrigem1[o1Key]++;
+
+      var o4Key=o4||'Sem tracking';
+      if (!byOrigem4[o4Key]) byOrigem4[o4Key]=0; byOrigem4[o4Key]++;
     }
   });
 
-  return {vendas:vendas,fat:fat,byDay:byDay,byUTMSource:byUTMSource,byUTMContent:byUTMContent};
+  return {vendas:vendas,fat:fat,byDay:byDay,byOrigem1:byOrigem1,byOrigem4:byOrigem4};
 }
 
 // ── FILTROS ───────────────────────────────────────────────────────────────────
@@ -525,11 +539,8 @@ function applyFilters() {
 }
 
 function resetFilters() {
-  var today=new Date().toISOString().slice(0,10);
-  document.getElementById('filterStart').value=DEFAULT_START;
-  document.getElementById('filterEnd').value=today;
-  document.getElementById('compStart') && (document.getElementById('compStart').value='');
-  document.getElementById('compEnd')   && (document.getElementById('compEnd').value='');
+  document.getElementById('filterStart').value = DEFAULT_START;
+  document.getElementById('filterEnd').value   = yesterday();
   applyFilters();
 }
 
@@ -538,46 +549,44 @@ function renderDashboard(m, t) {
   var spend=m.spend,reach=m.reach,imp=m.imp,clk=m.clk,lpv=m.lpv,chk=m.chk;
   var vendas=t.vendas,fat=t.fat;
 
-  // Métricas
   var cac    = vendas>0 ? spend/vendas : 0;
-  var cpm    = imp>0   ? spend/imp*1000 : 0;
-  var cpa    = reach>0 ? spend/reach*1000 : 0;
-  var cpc    = clk>0   ? spend/clk : 0;
-  var cpLPV  = lpv>0   ? spend/lpv : 0;
-  var cpChk  = chk>0   ? spend/chk : 0;
-  var rAlc   = imp>0   ? reach/imp*100 : 0;
-  var ctr    = imp>0   ? clk/imp*100 : 0;
-  var rLPV   = clk>0   ? lpv/clk*100 : 0;
-  var rChk   = lpv>0   ? chk/lpv*100 : 0;
-  var rVenda = chk>0   ? vendas/chk*100 : 0;
+  var cpm    = imp>0    ? spend/imp*1000 : 0;
+  var cpa    = reach>0  ? spend/reach*1000 : 0;
+  var cpc    = clk>0    ? spend/clk : 0;
+  var cpLPV  = lpv>0    ? spend/lpv : 0;
+  var cpChk  = chk>0    ? spend/chk : 0;
+  var rAlc   = imp>0    ? reach/imp*100 : 0;
+  var ctr    = imp>0    ? clk/imp*100 : 0;
+  var rLPV   = clk>0    ? lpv/clk*100 : 0;
+  var rChk   = lpv>0    ? chk/lpv*100 : 0;
+  var rVenda = chk>0    ? vendas/chk*100 : 0;
 
-  // ── BIG NUMBERS ─────────────────────────────────────────────────────────────
-  setEl('bnSpend', fBRL(spend));
-  setEl('bnSpendSub', 'Meta Ads · periodo selecionado');
-  setEl('bnVendas', fNum(vendas));
-  setEl('bnVendasSub', 'transacoes APPROVED');
-  setEl('bnFat', fBRL(fat));
-  setEl('bnFatSub', vendas+' vendas confirmadas');
-  setEl('bnCAC', cac>0 ? fBRL(cac) : '-');
+  // BIG NUMBERS
+  setEl('bnSpend',   spend>0 ? fBRL(spend) : 'R$\u00a00,00');
+  setEl('bnVendas',  fNum(vendas));
+  setEl('bnVendasSub','transacoes APPROVED');
+  setEl('bnFat',     fBRL(fat));
+  setEl('bnFatSub',  vendas+' vendas confirmadas');
+  setEl('bnCAC',     cac>0 ? fBRL(cac) : '-');
 
-  // Melhor CAC por criativo (Ad Name Meta × vendas utm_content Tamborete)
+  // Melhor CAC por criativo: Ad Name (Meta) × origem_4 (Tamborete)
   var bestCAC=Infinity, bestAd='-', bestVendas=0, bestSpend=0;
-  Object.keys(t.byUTMContent).forEach(function(cont){
-    var v=t.byUTMContent[cont];
+  Object.keys(t.byOrigem4).forEach(function(cont){
+    var v=t.byOrigem4[cont];
     var s=m.metaByAd[cont]||0;
     if (s===0||v===0) return;
     var c=s/v;
     if (c<bestCAC){bestCAC=c;bestAd=cont;bestVendas=v;bestSpend=s;}
   });
-  setEl('bnBestCAC', bestCAC<Infinity ? fBRL(bestCAC) : '-');
-  setEl('bnBestCACName', bestAd);
+  setEl('bnBestCAC',    bestCAC<Infinity ? fBRL(bestCAC) : '-');
+  setEl('bnBestCACName',bestAd);
   setEl('bnBestCACSub', bestVendas+' vendas · '+fBRL(bestSpend)+' investidos');
 
-  // ── FUNIL ────────────────────────────────────────────────────────────────────
-  setEl('fImp', fNum(imp));   setEl('fCPM', fBRL(cpm));
-  setEl('fAlc', fNum(reach)); setEl('fCPA', fBRL(cpa));
-  setEl('fClk', fNum(clk));   setEl('fCPC', fBRL(cpc));
-  setEl('fLPV', fNum(lpv));   setEl('fCPLPV', fBRL(cpLPV));
+  // FUNIL
+  setEl('fImp', fNum(imp));    setEl('fCPM',   fBRL(cpm));
+  setEl('fAlc', fNum(reach));  setEl('fCPA',   fBRL(cpa));
+  setEl('fClk', fNum(clk));    setEl('fCPC',   fBRL(cpc));
+  setEl('fLPV', fNum(lpv));    setEl('fCPLPV', fBRL(cpLPV));
   setEl('fChk', fNum(Math.round(chk))); setEl('fCPChk', fBRL(cpChk));
   setEl('fVendas', fNum(vendas)); setEl('fCAC', fBRL(cac));
   setEl('fRateAlc',  'Alcance / Impressoes · '+fPct(rAlc));
@@ -586,42 +595,37 @@ function renderDashboard(m, t) {
   setEl('fRateChk',  fPct(rChk)+' do LPV');
   setEl('fRateVenda',fPct(rVenda)+' dos checkouts');
 
-  // ── EVOLUCAO DIARIA ─────────────────────────────────────────────────────────
+  // EVOLUCAO DIARIA
   var daysSet={};
   Object.keys(m.byDay).forEach(function(d){daysSet[d]=1;});
   Object.keys(t.byDay).forEach(function(d){daysSet[d]=1;});
   var allDays=Object.keys(daysSet).sort();
-  var lbls=allDays.map(function(d){var p=d.split('-');return p[2]+'/'+p[1];});
-  var spendArr=allDays.map(function(d){return m.byDay[d]?m.byDay[d].spend:0;});
-  var vendasArr=allDays.map(function(d){return t.byDay[d]?t.byDay[d].vendas:0;});
-  var fatArr=allDays.map(function(d){return t.byDay[d]?t.byDay[d].fat:0;});
-  var cacArr=allDays.map(function(d,i){return vendasArr[i]>0?+(spendArr[i]/vendasArr[i]).toFixed(2):null;});
-  var pagArr=allDays.map(function(d){return t.byDay[d]?t.byDay[d].pago:0;});
-  var orgArr=allDays.map(function(d){return t.byDay[d]?t.byDay[d].org:0;});
+  var lbls      =allDays.map(function(d){var p=d.split('-');return p[2]+'/'+p[1];});
+  var spendArr  =allDays.map(function(d){return m.byDay[d]?m.byDay[d].spend:0;});
+  var vendasArr =allDays.map(function(d){return t.byDay[d]?t.byDay[d].vendas:0;});
+  var fatArr    =allDays.map(function(d){return t.byDay[d]?t.byDay[d].fat:0;});
+  var cacArr    =allDays.map(function(d,i){return vendasArr[i]>0?+(spendArr[i]/vendasArr[i]).toFixed(2):null;});
+  var pagArr    =allDays.map(function(d){return t.byDay[d]?t.byDay[d].pago:0;});
+  var orgArr    =allDays.map(function(d){return t.byDay[d]?t.byDay[d].org:0;});
 
-  // Gráfico 1: Investimento × Faturamento
   mkChart('cInvFat',{type:'line',data:{labels:lbls,datasets:[
     {label:'Investimento',data:spendArr,borderColor:'#d4a800',backgroundColor:'rgba(212,168,0,.08)',borderWidth:2,pointRadius:4,fill:true,tension:.3,yAxisID:'y'},
     {label:'Faturamento', data:fatArr,  borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.06)',borderWidth:2,pointRadius:4,fill:true,tension:.3,yAxisID:'y'}
   ]},options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},scales:{x:{grid:G},y:{grid:G,beginAtZero:true,ticks:{callback:function(v){return 'R$'+(v>=1000?(v/1000).toFixed(0)+'k':v.toFixed(0));}}}}}});
 
-  // Gráfico 2: Vendas por dia
   mkChart('cVendasDia',{type:'bar',data:{labels:lbls,datasets:[{data:vendasArr,backgroundColor:'rgba(212,168,0,.7)',borderRadius:5,borderSkipped:false}]},options:{plugins:{legend:{display:false}},scales:{x:{grid:G},y:{grid:G,beginAtZero:true}}}});
 
-  // Gráfico 3: CAC por dia
   mkChart('cCACDia',{type:'line',data:{labels:lbls,datasets:[{data:cacArr,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.07)',borderWidth:2.5,pointRadius:5,fill:true,tension:.3,spanGaps:true}]},options:{plugins:{legend:{display:false}},scales:{x:{grid:G},y:{grid:G,min:0,ticks:{callback:function(v){return 'R$'+v.toFixed(0);}}}}}});
 
-  // Gráfico 4: Vendas por origem
   mkChart('cOrigemDia',{type:'bar',data:{labels:lbls,datasets:[
     {label:'Pago',    data:pagArr,backgroundColor:'rgba(212,168,0,.75)',borderRadius:4,stack:'s'},
     {label:'Organico',data:orgArr,backgroundColor:'rgba(100,100,100,.4)',borderRadius:4,stack:'s'}
   ]},options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},scales:{x:{grid:G,stacked:true},y:{grid:G,beginAtZero:true,stacked:true}}}});
 
-  // ── DISTRIBUICAO POR ORIGEM ──────────────────────────────────────────────────
-  // Barras horizontais utm_source
+  // DISTRIBUICAO POR ORIGEM (origem_1)
   var srcEl=document.getElementById('origemVendasBars');
   if (srcEl) {
-    var srcEntries=Object.entries(t.byUTMSource).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+    var srcEntries=Object.entries(t.byOrigem1).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
     var srcTot=srcEntries.reduce(function(s,e){return s+e[1];},0)||1;
     srcEl.innerHTML=srcEntries.map(function(e){
       var pct=(e[1]/srcTot*100).toFixed(1);
@@ -632,33 +636,31 @@ function renderDashboard(m, t) {
         +'<div style="background:var(--border);border-radius:3px;height:7px">'
         +'<div style="width:'+pct+'%;height:7px;border-radius:3px;background:var(--yellow)"></div></div>'
         +'</div>';
-    }).join('') || '<div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Sem dados UTM no periodo</div>';
+    }).join('') || '<div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Sem dados de origem no periodo</div>';
   }
 
-  // Investimento por público
+  // Investimento por público (Frio / Quente)
   var totalSpend=spend||1;
   var pctF=(m.spendFrio/totalSpend*100).toFixed(1);
   var pctQ=(m.spendQuente/totalSpend*100).toFixed(1);
-  var cacFrio=m.spendFrio>0&&t.vendas>0?m.spendFrio/t.vendas:0;
-  var cacQuente=m.spendQuente>0&&t.vendas>0?m.spendQuente/t.vendas:0;
-  setEl('pubSpendFrio',fBRL(m.spendFrio));setEl('pubPctFrio',pctF+'%');setEl('pubCACFrio',cacFrio>0?fBRL(cacFrio):'-');
+  var cacFrio   =m.spendFrio>0&&vendas>0?m.spendFrio/vendas:0;
+  var cacQuente =m.spendQuente>0&&vendas>0?m.spendQuente/vendas:0;
+  setEl('pubSpendFrio',fBRL(m.spendFrio));  setEl('pubPctFrio',pctF+'%');   setEl('pubCACFrio',cacFrio>0?fBRL(cacFrio):'-');
   setEl('pubSpendQuente',fBRL(m.spendQuente));setEl('pubPctQuente',pctQ+'%');setEl('pubCACQuente',cacQuente>0?fBRL(cacQuente):'-');
-  var bf=document.getElementById('pubBarFrio');if(bf)bf.style.width=pctF+'%';
-  var bq=document.getElementById('pubBarQuente');if(bq)bq.style.width=pctQ+'%';
+  var bf=document.getElementById('pubBarFrio');   if(bf)bf.style.width=pctF+'%';
+  var bq=document.getElementById('pubBarQuente'); if(bq)bq.style.width=pctQ+'%';
 
-  // ── CRIATIVOS ────────────────────────────────────────────────────────────────
-  // Top investimento por criativo (Meta Ads)
+  // CRIATIVOS: Meta Ads (Ad Name) × Tamborete Silver (origem_4)
   var adEntries=Object.entries(m.metaByAd).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
-  mkChart('cTopCriativos',{type:'bar',data:{labels:adEntries.map(function(e){return e[0].replace(/^\d+\s*-\s*(VID\s*-\s*)?/i,'').trim().slice(0,30);}),datasets:[{data:adEntries.map(function(e){return e[1];}),backgroundColor:['#d4a800','rgba(212,168,0,.75)','rgba(212,168,0,.5)','rgba(212,168,0,.35)','rgba(212,168,0,.2)'],borderRadius:5,barThickness:20}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:G,ticks:{callback:function(v){return 'R$'+(v>=1000?(v/1000).toFixed(0)+'k':v);}}},y:{grid:{display:false}}}}});
+  mkChart('cTopCriativos',{type:'bar',data:{labels:adEntries.map(function(e){return e[0].slice(0,30);}),datasets:[{data:adEntries.map(function(e){return e[1];}),backgroundColor:['#d4a800','rgba(212,168,0,.75)','rgba(212,168,0,.5)','rgba(212,168,0,.35)','rgba(212,168,0,.2)'],borderRadius:5,barThickness:20}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:G,ticks:{callback:function(v){return 'R$'+(v>=1000?(v/1000).toFixed(0)+'k':v);}}},y:{grid:{display:false}}}}});
 
-  // Top vendas por criativo (utm_content Tamborete)
-  var contEntries=Object.entries(t.byUTMContent).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+  var contEntries=Object.entries(t.byOrigem4).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
   mkChart('cVendasCriativos',{type:'bar',data:{labels:contEntries.map(function(e){return e[0].slice(0,30);}),datasets:[{data:contEntries.map(function(e){return e[1];}),backgroundColor:['#16a34a','rgba(22,163,74,.75)','rgba(22,163,74,.5)','rgba(22,163,74,.35)','rgba(22,163,74,.2)'],borderRadius:5,barThickness:20}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:G},y:{grid:{display:false}}}}});
 
   // Tabela performance por criativo
-  var allCont=Object.keys(t.byUTMContent).length>0?Object.keys(t.byUTMContent):Object.keys(m.metaByAd);
+  var allCont=Object.keys(t.byOrigem4).length>0?Object.keys(t.byOrigem4):Object.keys(m.metaByAd);
   var allCriRows=allCont.map(function(key){
-    var v=t.byUTMContent[key]||0;
+    var v=t.byOrigem4[key]||0;
     var s=m.metaByAd[key]||0;
     var c=v>0&&s>0?s/v:0;
     return {key:key,vendas:v,spend:s,cac:c};
@@ -692,15 +694,13 @@ function renderDashboard(m, t) {
   var tblC=document.getElementById('tabelaCampanhas');
   if(tblC) tblC.innerHTML='<thead><tr><th>Campanha</th><th class="num">Investimento</th></tr></thead><tbody>'+(campRows||'<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:16px">Sem dados</td></tr>')+'</tbody>';
 
-  // ── CAC POR PUBLICO ──────────────────────────────────────────────────────────
-  var totalV=vendas||1;
-  var pctFrioCard=(m.spendFrio/spend*100||0).toFixed(1);
-  var pctQuenteCard=(m.spendQuente/spend*100||0).toFixed(1);
-  // Estimar vendas por público proporcional ao spend
-  var vendasFrio   = spend>0?Math.round(vendas*m.spendFrio/spend):0;
-  var vendasQuente = spend>0?Math.round(vendas*m.spendQuente/spend):0;
-  var cacFrioCard   = vendasFrio>0 ? m.spendFrio/vendasFrio : 0;
-  var cacQuenteCard = vendasQuente>0 ? m.spendQuente/vendasQuente : 0;
+  // CAC POR PUBLICO
+  var pctFrioCard  =(m.spendFrio/totalSpend*100||0).toFixed(1);
+  var pctQuenteCard=(m.spendQuente/totalSpend*100||0).toFixed(1);
+  var vendasFrio   =spend>0?Math.round(vendas*m.spendFrio/spend):0;
+  var vendasQuente =spend>0?Math.round(vendas*m.spendQuente/spend):0;
+  var cacFrioCard  =vendasFrio>0?m.spendFrio/vendasFrio:0;
+  var cacQuenteCard=vendasQuente>0?m.spendQuente/vendasQuente:0;
 
   setEl('pubCACFrioCard',  cacFrioCard>0  ? fBRL(cacFrioCard)  : '-');
   setEl('pubCACQuenteCard',cacQuenteCard>0? fBRL(cacQuenteCard): '-');
@@ -708,8 +708,8 @@ function renderDashboard(m, t) {
   setEl('pubVendasQuente', vendasQuente);
   setEl('pubSpendFrioCard',fBRL(m.spendFrio));
   setEl('pubSpendQuenteCard',fBRL(m.spendQuente));
-  setEl('pubPctFrioCard',   pctFrioCard+'%');
-  setEl('pubPctQuenteCard', pctQuenteCard+'%');
+  setEl('pubPctFrioCard',  pctFrioCard+'%');
+  setEl('pubPctQuenteCard',pctQuenteCard+'%');
   var bfC=document.getElementById('pubBarFrioCard');   if(bfC)bfC.style.width=pctFrioCard+'%';
   var bqC=document.getElementById('pubBarQuenteCard'); if(bqC)bqC.style.width=pctQuenteCard+'%';
 }
@@ -751,8 +751,8 @@ function fetchAll(manual) {
   if(badge){badge.className='status-badge loading';badge.innerHTML='<div class="dot"></div><span>Carregando...</span>';}
   if(errBan) errBan.classList.remove('show');
 
-  var urls=[csvURL(SHEET_META),csvURL(SHEET_TAMB)];
-  var TOTAL=2,results=[],done=0;
+  var urls=[csvURL(SHEET_META), csvURL(SHEET_TAMB)];
+  var TOTAL=2, results=[], done=0;
 
   var safetyTimer=setTimeout(function(){
     if(done<TOTAL){console.warn('[FEF] Timeout — forcando render');done=TOTAL;onDone();}
@@ -787,7 +787,7 @@ function fetchAll(manual) {
   for(var i=0;i<urls.length;i++){
     (function(idx){
       fetch(urls[idx]+'&cb='+Date.now(),{cache:'no-store'})
-        .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+        .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status+' ao buscar aba '+(idx===0?SHEET_META:SHEET_TAMB));return r.text();})
         .then(function(text){results[idx]=text;onDone();})
         .catch(function(e){console.error('[FEF] fetch '+idx,e);results[idx]='';onDone();});
     })(i);
