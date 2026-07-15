@@ -236,9 +236,18 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
           <div class="ft-right"><div class="ft-cost" id="fCPChk">-</div><div class="ft-cost-lbl">Custo por Checkout</div></div>
         </div>
         <div class="fc"><div class="fc-line"></div><div class="fc-tag" id="fRateVenda" style="color:var(--green)">-</div><div class="fc-line"></div></div>
-        <div class="funnel-trap green-row" style="width:24%">
-          <div class="ft-left"><div class="ft-name">Vendas</div><div class="ft-val" id="fVendas">-</div></div>
-          <div class="ft-right"><div class="ft-cost" id="fCAC">-</div><div class="ft-cost-lbl">CAC</div></div>
+        <div class="funnel-trap green-row" style="width:24%;position:relative">
+          <div class="ft-left">
+            <div class="ft-name">Vendas Meta</div>
+            <div class="ft-val" id="fVendas">-</div>
+          </div>
+          <div class="ft-right">
+            <div class="ft-cost" id="fCAC">-</div>
+            <div class="ft-cost-lbl">CAC (Meta)</div>
+          </div>
+          <div style="position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--surface2);border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:700;padding:3px 12px;border-radius:20px">
+            🛒 Tamborete: <span id="fVendasTamb">-</span> vendas
+          </div>
         </div>
       </div>
     </div>
@@ -246,12 +255,12 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
     <!-- EVOLUCAO DIARIA -->
     <div class="section-label">Evolucao Diaria</div>
     <div class="grid2" style="margin-bottom:14px">
-      <div class="card"><div class="card-title">💰 Investimento × Faturamento por Dia</div><canvas id="cInvFat" height="170"></canvas></div>
-      <div class="card"><div class="card-title">🛒 Vendas por Dia</div><canvas id="cVendasDia" height="170"></canvas></div>
+      <div class="card"><div class="card-title">💰 Investimento × Faturamento por Dia</div><canvas id="cInvFat" height="170"></canvas><div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Meta Ads + Tamborete</div></div>
+      <div class="card"><div class="card-title">🛒 Vendas por Dia</div><canvas id="cVendasDia" height="170"></canvas><div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Tamborete</div></div>
     </div>
     <div class="grid2" style="margin-bottom:28px">
-      <div class="card"><div class="card-title">📉 CAC por Dia</div><canvas id="cCACDia" height="170"></canvas></div>
-      <div class="card"><div class="card-title">🔵 Vendas por Origem (Pago vs Organico)</div><canvas id="cOrigemDia" height="170"></canvas></div>
+      <div class="card"><div class="card-title">📉 CAC por Dia</div><canvas id="cCACDia" height="170"></canvas><div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Meta Ads + Tamborete</div></div>
+      <div class="card"><div class="card-title">🔵 Vendas por Origem (Pago vs Organico)</div><canvas id="cOrigemDia" height="170"></canvas><div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Tamborete</div></div>
     </div>
 
     <!-- DISTRIBUICAO POR ORIGEM -->
@@ -260,6 +269,7 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
       <div class="card">
         <div class="card-title">🛒 Vendas por Canal (origem_1)</div>
         <div id="origemVendasBars"></div>
+        <div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Tamborete</div>
       </div>
       <div class="card">
         <div class="card-title">💰 Investimento por Publico (Meta Ads)</div>
@@ -292,10 +302,12 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
       <div class="card">
         <div class="card-title">💰 Investimento por Criativo (Meta Ads — Ad Name)</div>
         <canvas id="cTopCriativos" height="160"></canvas>
+        <div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Meta Ads</div>
       </div>
       <div class="card">
         <div class="card-title">🛒 Vendas por Criativo (origem_4)</div>
         <canvas id="cVendasCriativos" height="160"></canvas>
+        <div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Tamborete</div>
       </div>
     </div>
 
@@ -551,7 +563,7 @@ Chart.defaults.font.family='DM Sans';
 
 // ── PROCESSAR META ADS ────────────────────────────────────────────────────────
 function processMeta(rows, d1, d2) {
-  var spend=0,reach=0,imp=0,clk=0,lpv=0,chk=0;
+  var spend=0,reach=0,imp=0,clk=0,lpv=0,chk=0,metaPurchase=0;
   var spendFrio=0,spendQuente=0;
   var byDay={}, metaByAd={}, byAdset={}, byCamp={};
 
@@ -567,7 +579,9 @@ function processMeta(rows, d1, d2) {
     imp     += numFromRow(r,'Impressions');
     clk     += numFromRow(r,'Inline Link Clicks');
     lpv     += numFromRow(r,'Action Landing Page View');
-    chk     += numFromRow(r,'Action FB Pixel Initiate Checkout (Offsite Conversion)');
+    chk          += numFromRow(r,'Action FB Pixel Initiate Checkout (Offsite Conversion)');
+    var purchase = numFromRow(r,'Action FB Pixel Purchase (Offsite Conversion)');
+    metaPurchase += purchase;
 
     if (!byDay[d]) byDay[d]={spend:0};
     byDay[d].spend += s;
@@ -576,16 +590,34 @@ function processMeta(rows, d1, d2) {
     if (campName.indexOf('QUENTE')>=0) spendQuente += s;
 
     var ad=(r['Ad Name']||'').trim();
-    if (ad){if(!metaByAd[ad])metaByAd[ad]=0; metaByAd[ad]+=s;}
-
+    if (ad){
+      if(!metaByAd[ad]) metaByAd[ad]={spend:0,imp:0,clk:0,chk:0,purchase:0};
+      metaByAd[ad].spend+=s; metaByAd[ad].imp+=numFromRow(r,'Impressions');
+      metaByAd[ad].clk+=numFromRow(r,'Inline Link Clicks');
+      metaByAd[ad].chk+=numFromRow(r,'Action FB Pixel Initiate Checkout (Offsite Conversion)');
+      metaByAd[ad].purchase+=purchase;
+    }
     var adset=(r['Adset Name']||r['Ad Set Name']||'').trim();
-    if (adset){if(!byAdset[adset])byAdset[adset]={spend:0}; byAdset[adset].spend+=s;}
-
+    if (adset){
+      if(!byAdset[adset]) byAdset[adset]={spend:0,imp:0,clk:0,chk:0,purchase:0};
+      byAdset[adset].spend+=s;
+      byAdset[adset].imp+=numFromRow(r,'Impressions');
+      byAdset[adset].clk+=numFromRow(r,'Inline Link Clicks');
+      byAdset[adset].chk+=numFromRow(r,'Action FB Pixel Initiate Checkout (Offsite Conversion)');
+      byAdset[adset].purchase+=purchase;
+    }
     var camp=(r['Campaign Name']||'').trim();
-    if (camp){if(!byCamp[camp])byCamp[camp]={spend:0}; byCamp[camp].spend+=s;}
+    if (camp){
+      if(!byCamp[camp]) byCamp[camp]={spend:0,imp:0,clk:0,chk:0,purchase:0};
+      byCamp[camp].spend+=s;
+      byCamp[camp].imp+=numFromRow(r,'Impressions');
+      byCamp[camp].clk+=numFromRow(r,'Inline Link Clicks');
+      byCamp[camp].chk+=numFromRow(r,'Action FB Pixel Initiate Checkout (Offsite Conversion)');
+      byCamp[camp].purchase+=purchase;
+    }
   });
 
-  return {spend:spend,reach:reach,imp:imp,clk:clk,lpv:lpv,chk:chk,
+  return {spend:spend,reach:reach,imp:imp,clk:clk,lpv:lpv,chk:chk,metaPurchase:metaPurchase,
           spendFrio:spendFrio,spendQuente:spendQuente,
           byDay:byDay,metaByAd:metaByAd,byAdset:byAdset,byCamp:byCamp};
 }
@@ -699,17 +731,22 @@ function renderDashboard(m, t) {
   setEl('bnBestCACSub', bestVendas+' vendas · '+fBRL(bestSpend)+' investidos');
 
   // FUNIL
+  var metaPurchase=m.metaPurchase||0;
+  var cacMeta = metaPurchase>0 ? spend/metaPurchase : 0;
+  var rVendaMeta = chk>0 ? metaPurchase/chk*100 : 0;
   setEl('fImp', fNum(imp));    setEl('fCPM',   fBRL(cpm));
   setEl('fAlc', fNum(reach));  setEl('fCPA',   fBRL(cpa));
   setEl('fClk', fNum(clk));    setEl('fCPC',   fBRL(cpc));
   setEl('fLPV', fNum(lpv));    setEl('fCPLPV', fBRL(cpLPV));
   setEl('fChk', fNum(Math.round(chk))); setEl('fCPChk', fBRL(cpChk));
-  setEl('fVendas', fNum(vendas)); setEl('fCAC', fBRL(cac));
+  setEl('fVendas', fNum(Math.round(metaPurchase)));
+  setEl('fCAC', cacMeta>0 ? fBRL(cacMeta) : '-');
+  setEl('fVendasTamb', fNum(vendas));
   setEl('fRateAlc',  'Alcance / Impressoes · '+fPct(rAlc));
   setEl('fRateCTR',  'CTR · '+ctr.toFixed(2)+'%');
   setEl('fRateLPV',  fPct(rLPV)+' dos cliques');
   setEl('fRateChk',  fPct(rChk)+' do LPV');
-  setEl('fRateVenda',fPct(rVenda)+' dos checkouts');
+  setEl('fRateVenda',fPct(rVendaMeta)+' dos checkouts');
 
   // EVOLUCAO DIARIA
   var daysSet={};
@@ -773,14 +810,14 @@ function renderDashboard(m, t) {
   var contEntries=Object.entries(t.byOrigem4).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
   mkChart('cVendasCriativos',{type:'bar',data:{labels:contEntries.map(function(e){return e[0].slice(0,30);}),datasets:[{data:contEntries.map(function(e){return e[1];}),backgroundColor:['#16a34a','rgba(22,163,74,.75)','rgba(22,163,74,.5)','rgba(22,163,74,.35)','rgba(22,163,74,.2)'],borderRadius:5,barThickness:20}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:G},y:{grid:{display:false}}}}});
 
-  // Tabela performance por criativo
-  var allCont=Object.keys(t.byOrigem4).length>0?Object.keys(t.byOrigem4):Object.keys(m.metaByAd);
-  var allCriRows=allCont.map(function(key){
-    var v=t.byOrigem4[key]||0;
-    var s=m.metaByAd[key]||0;
-    var c=v>0&&s>0?s/v:0;
-    return {key:key,vendas:v,spend:s,cac:c};
-  }).sort(function(a,b){return b.vendas-a.vendas;});
+  // Tabela performance por criativo (100% Meta Ads)
+  var allCriRows=Object.entries(m.metaByAd).map(function(e){
+    var key=e[0]; var d=e[1];
+    var ctr=d.imp>0?(d.clk/d.imp*100):0;
+    var cac=d.purchase>0?d.spend/d.purchase:0;
+    var convChk=d.chk>0?(d.purchase/d.chk*100):0;
+    return {key:key,spend:d.spend,purchase:d.purchase,cac:cac,ctr:ctr,convChk:convChk};
+  }).sort(function(a,b){return b.purchase-a.purchase;});
 
   var minCAC=Infinity;
   allCriRows.forEach(function(r){if(r.cac>0&&r.cac<minCAC)minCAC=r.cac;});
@@ -790,25 +827,43 @@ function renderDashboard(m, t) {
     var cls=r.cac>0&&r.cac<100?'cac-bom':r.cac>=100&&r.cac<300?'cac-med':'cac-ruim';
     return '<tr class="'+(best?'row-best':'')+'"><td><span class="cri-nome">'+r.key+(best?' 🏆':'')+'</span></td>'
       +'<td class="num">'+fBRL(r.spend)+'</td>'
-      +'<td class="num">'+r.vendas+'</td>'
-      +'<td class="num '+cls+'">'+(r.cac>0?fBRL(r.cac):'-')+'</td></tr>';
+      +'<td class="num">'+fNum(Math.round(r.purchase))+'</td>'
+      +'<td class="num '+cls+'">'+(r.cac>0?fBRL(r.cac):'-')+'</td>'
+      +'<td class="num">'+(r.convChk>0?r.convChk.toFixed(1)+'%':'-')+'</td>'
+      +'<td class="num">'+r.ctr.toFixed(2)+'%</td></tr>';
   }).join('');
   var tbl=document.getElementById('tabelaCriativos');
-  if(tbl) tbl.innerHTML='<thead><tr><th>Criativo</th><th class="num">Investimento</th><th class="num">Vendas</th><th class="num">CAC</th></tr></thead><tbody>'+(tblRows||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sem dados</td></tr>')+'</tbody>';
+  if(tbl) tbl.innerHTML='<thead><tr><th>Criativo</th><th class="num">Investimento</th><th class="num">Vendas</th><th class="num">CAC</th><th class="num">% Conv. Chk</th><th class="num">CTR</th></tr></thead><tbody>'+(tblRows||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sem dados</td></tr>')+'</tbody>';
 
-  // Tabela adsets
+  // Tabela adsets (100% Meta Ads)
   var adsetRows=Object.entries(m.byAdset).sort(function(a,b){return b[1].spend-a[1].spend;}).map(function(e){
-    return '<tr><td><span class="cri-nome">'+e[0]+'</span></td><td class="num">'+fBRL(e[1].spend)+'</td></tr>';
+    var d=e[1];
+    var cac=d.purchase>0?d.spend/d.purchase:0;
+    var conv=d.chk>0?(d.purchase/d.chk*100):0;
+    var cls=cac>0&&cac<100?'cac-bom':cac>=100&&cac<300?'cac-med':'cac-ruim';
+    return '<tr><td><span class="cri-nome">'+e[0]+'</span></td>'
+      +'<td class="num">'+fBRL(d.spend)+'</td>'
+      +'<td class="num">'+fNum(Math.round(d.purchase))+'</td>'
+      +'<td class="num '+cls+'">'+(cac>0?fBRL(cac):'-')+'</td>'
+      +'<td class="num">'+(d.imp>0?(d.clk/d.imp*100).toFixed(2)+'%':'-')+'</td></tr>';
   }).join('');
   var tblA=document.getElementById('tabelaAdsets');
-  if(tblA) tblA.innerHTML='<thead><tr><th>Conjunto</th><th class="num">Investimento</th></tr></thead><tbody>'+(adsetRows||'<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:16px">Sem dados</td></tr>')+'</tbody>';
+  if(tblA) tblA.innerHTML='<thead><tr><th>Conjunto</th><th class="num">Investimento</th><th class="num">Vendas</th><th class="num">CAC</th><th class="num">% Conv. Chk</th><th class="num">CTR</th></tr></thead><tbody>'+(adsetRows||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">Sem dados</td></tr>')+'</tbody>';
 
-  // Tabela campanhas
+  // Tabela campanhas (100% Meta Ads)
   var campRows=Object.entries(m.byCamp).sort(function(a,b){return b[1].spend-a[1].spend;}).map(function(e){
-    return '<tr><td><span class="cri-nome">'+e[0]+'</span></td><td class="num">'+fBRL(e[1].spend)+'</td></tr>';
+    var d=e[1];
+    var cac=d.purchase>0?d.spend/d.purchase:0;
+    var conv=d.chk>0?(d.purchase/d.chk*100):0;
+    var cls=cac>0&&cac<100?'cac-bom':cac>=100&&cac<300?'cac-med':'cac-ruim';
+    return '<tr><td><span class="cri-nome">'+e[0]+'</span></td>'
+      +'<td class="num">'+fBRL(d.spend)+'</td>'
+      +'<td class="num">'+fNum(Math.round(d.purchase))+'</td>'
+      +'<td class="num '+cls+'">'+(cac>0?fBRL(cac):'-')+'</td>'
+      +'<td class="num">'+(d.imp>0?(d.clk/d.imp*100).toFixed(2)+'%':'-')+'</td></tr>';
   }).join('');
   var tblC=document.getElementById('tabelaCampanhas');
-  if(tblC) tblC.innerHTML='<thead><tr><th>Campanha</th><th class="num">Investimento</th></tr></thead><tbody>'+(campRows||'<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:16px">Sem dados</td></tr>')+'</tbody>';
+  if(tblC) tblC.innerHTML='<thead><tr><th>Campanha</th><th class="num">Investimento</th><th class="num">Vendas</th><th class="num">CAC</th><th class="num">% Conv. Chk</th><th class="num">CTR</th></tr></thead><tbody>'+(campRows||'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">Sem dados</td></tr>')+'</tbody>';
 
   // CAC POR PUBLICO
   var pctFrioCard  =(m.spendFrio/totalSpend*100||0).toFixed(1);
