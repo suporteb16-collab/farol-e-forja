@@ -171,6 +171,7 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
 
   <div class="tabs-nav">
     <button class="tab-btn tab-active" id="tab-overview" onclick="switchTab('overview')">📊 Visao Geral</button>
+    <button class="tab-btn" id="tab-kiwify" onclick="switchTab('kiwify')">🛒 Vendas Online</button>
   </div>
 
   <!-- VISAO GERAL -->
@@ -467,6 +468,75 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
     </div>
 
   </div><!-- /pane-overview -->
+
+  <!-- VENDAS ONLINE (KIWIFY) -->
+  <div id="pane-kiwify" style="display:none">
+
+    <!-- BIG NUMBERS -->
+    <div class="section-label">Visao Geral — Vendas Online</div>
+    <div class="grid4">
+      <div class="bn">
+        <div class="bn-lbl">Vendas</div>
+        <div class="bn-val" id="kwVendas">-</div>
+        <div class="bn-sub" id="kwVendasSub">pedidos pagos · periodo selecionado</div>
+      </div>
+      <div class="bn">
+        <div class="bn-lbl">Faturamento</div>
+        <div class="bn-val" id="kwFat" style="font-size:36px">-</div>
+        <div class="bn-sub">valor total pago</div>
+      </div>
+      <div class="bn">
+        <div class="bn-lbl">ROAS</div>
+        <div class="bn-val" id="kwROAS">-</div>
+        <div class="bn-sub" id="kwROASSub">Faturamento / Investimento</div>
+      </div>
+      <div class="bn">
+        <div class="bn-lbl">CAC</div>
+        <div class="bn-val" id="kwCAC">-</div>
+        <div class="bn-sub" id="kwCACSub">Investimento / Vendas</div>
+      </div>
+    </div>
+    <div style="margin:-16px 0 28px;font-size:10px;color:var(--muted);font-style:italic">
+      ROAS e CAC calculados cruzando as vendas da Kiwify (<code>TrackingParameters_utm_campaign</code>) com o investimento da campanha Meta Ads <strong>"[B16] [VENDAS] [SITE] [F&F]"</strong>.
+    </div>
+
+    <!-- EVOLUCAO DIARIA -->
+    <div class="section-label">Evolucao Diaria</div>
+    <div class="grid2" style="margin-bottom:28px">
+      <div class="card"><div class="card-title">🛒 Vendas por Dia</div><canvas id="cKwVendasDia" height="170"></canvas><div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Kiwify</div></div>
+      <div class="card"><div class="card-title">📈 ROAS e CAC por Dia</div><canvas id="cKwRoasCac" height="170"></canvas><div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Kiwify + Meta Ads (campanha SITE)</div></div>
+    </div>
+
+    <!-- VENDAS POR PRODUTO -->
+    <div class="section-label">Vendas por Produto</div>
+    <div class="card" style="margin-bottom:28px">
+      <div id="kwVendasProdutoBars"></div>
+    </div>
+
+    <!-- DISTRIBUICAO POR PUBLICO E CANAL -->
+    <div class="section-label">Distribuicao por Publico e Canal</div>
+    <div class="grid2" style="margin-bottom:28px">
+      <div class="card">
+        <div class="card-title">🎯 Vendas por Publico (utm_medium)</div>
+        <div id="kwPublicoBars"></div>
+        <div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Kiwify</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📡 Vendas por Canal (utm_source)</div>
+        <div id="kwCanalBars"></div>
+        <div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Kiwify</div>
+      </div>
+    </div>
+
+    <!-- VENDAS POR CRIATIVO -->
+    <div class="section-label">Vendas por Criativo</div>
+    <div class="card" style="margin-bottom:28px">
+      <div class="card-title">🎨 Vendas por Criativo (utm_content)</div>
+      <canvas id="cKwCriativos" height="160"></canvas>
+      <div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Kiwify</div>
+    </div>
+
+  </div><!-- /pane-kiwify -->
 </div>
 
 <div class="footer">
@@ -483,6 +553,8 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
 const WORKER_URL    = 'https://farol-e-forja-webhook.henrscard.workers.dev';
 const SHEET_META    = 'meta_ads';
 const SHEET_TAMB    = 'tamborete_silver';
+const SHEET_KIWIFY  = 'kiwify_online';
+const KIWIFY_CAMPAIGN_FILTER = '[B16] [VENDAS] [SITE] [F&F]';
 const REFRESH_MS    = 60 * 60 * 1000; // 1 hora
 const DEFAULT_START = '2026-06-23';
 
@@ -501,6 +573,7 @@ var nextRefreshAt = null;
 var countdownTimer = null;
 var cachedMeta = [];
 var cachedTamb = [];
+var cachedKiwify = [];
 var _activeFilters = {d1:'', d2:''};
 
 // ── CSV PARSER ────────────────────────────────────────────────────────────────
@@ -565,6 +638,7 @@ Chart.defaults.font.family='DM Sans';
 function processMeta(rows, d1, d2) {
   var spend=0,reach=0,imp=0,clk=0,lpv=0,chk=0,metaPurchase=0;
   var spendFrio=0,spendQuente=0;
+  var spendSite=0, spendSiteByDay={};
   var byDay={}, metaByAd={}, byAdset={}, byCamp={};
 
   rows.forEach(function(r) {
@@ -588,6 +662,11 @@ function processMeta(rows, d1, d2) {
 
     if (campName.indexOf('FRIO')>=0)   spendFrio   += s;
     if (campName.indexOf('QUENTE')>=0) spendQuente += s;
+    if (campName.indexOf(KIWIFY_CAMPAIGN_FILTER.toUpperCase())>=0) {
+      spendSite += s;
+      if (!spendSiteByDay[d]) spendSiteByDay[d]=0;
+      spendSiteByDay[d] += s;
+    }
 
     var ad=(r['Ad Name']||'').trim();
     if (ad){
@@ -619,6 +698,7 @@ function processMeta(rows, d1, d2) {
 
   return {spend:spend,reach:reach,imp:imp,clk:clk,lpv:lpv,chk:chk,metaPurchase:metaPurchase,
           spendFrio:spendFrio,spendQuente:spendQuente,
+          spendSite:spendSite,spendSiteByDay:spendSiteByDay,
           byDay:byDay,metaByAd:metaByAd,byAdset:byAdset,byCamp:byCamp};
 }
 
@@ -669,6 +749,57 @@ function processTamborete(rows, d1, d2) {
   return {vendas:vendas,fat:fat,byDay:byDay,byOrigem1:byOrigem1,byOrigem4:byOrigem4,byProduto:byProduto};
 }
 
+// ── PROCESSAR KIWIFY ONLINE ───────────────────────────────────────────────────
+// Colunas: order_id, order_ref, order_status, webhook_event_type, data_transacao,
+//          product_id, product_name, product_offer_name, customer_name, customer_email,
+//          valor_transacao, payment_method, installments,
+//          TrackingParameters_utm_source, TrackingParameters_utm_medium,
+//          TrackingParameters_utm_campaign, TrackingParameters_utm_content, TrackingParameters_utm_term
+function processKiwify(rows, d1, d2) {
+  var vendas=0,fat=0;
+  var byDay={}, byProduto={}, byMedium={}, bySource={}, byContent={};
+  var seenIds={};
+
+  rows.forEach(function(r) {
+    var data=(r['approved_date']||r['created_at']||'').trim().slice(0,10);
+    if (!data||data<d1||data>d2) return;
+
+    var status=(r['order_status']||'').trim().toUpperCase();
+    var id=(r['order_ref']||r['order_id']||'').trim();
+    var rawVal=String(r['Commissions_charge_amount']||'0').trim();
+    var cents = rawVal.indexOf(',')>=0
+      ? parseFloat(rawVal.replace(/\./g,'').replace(',','.')) || 0
+      : parseFloat(rawVal) || 0;
+    var amount = cents / 100; // Kiwify manda em centavos
+
+    if ((status==='PAID'||status==='APPROVED'||status==='COMPLETE') && id && !seenIds[id]) {
+      seenIds[id]=true;
+      vendas++;
+      fat+=amount;
+
+      if (!byDay[data]) byDay[data]={vendas:0,fat:0};
+      byDay[data].vendas++;
+      byDay[data].fat+=amount;
+
+      var prod=(r['Product_product_name']||'').trim()||'Sem produto';
+      if (!byProduto[prod]) byProduto[prod]={vendas:0,fat:0};
+      byProduto[prod].vendas++;
+      byProduto[prod].fat+=amount;
+
+      var medium=(r['TrackingParameters_utm_medium']||'').trim()||'Sem publico';
+      if (!byMedium[medium]) byMedium[medium]=0; byMedium[medium]++;
+
+      var source=(r['TrackingParameters_utm_source']||'').trim()||'Sem canal';
+      if (!bySource[source]) bySource[source]=0; bySource[source]++;
+
+      var content=(r['TrackingParameters_utm_content']||'').trim()||'Sem criativo';
+      if (!byContent[content]) byContent[content]=0; byContent[content]++;
+    }
+  });
+
+  return {vendas:vendas,fat:fat,byDay:byDay,byProduto:byProduto,byMedium:byMedium,bySource:bySource,byContent:byContent};
+}
+
 // ── FILTROS ───────────────────────────────────────────────────────────────────
 function getFilters() {
   return {
@@ -683,7 +814,9 @@ function applyFilters() {
   _activeFilters=f;
   var m=processMeta(cachedMeta,f.d1,f.d2);
   var t=processTamborete(cachedTamb,f.d1,f.d2);
+  var k=processKiwify(cachedKiwify,f.d1,f.d2);
   renderDashboard(m,t);
+  renderKiwify(m,k);
 }
 
 function resetFilters() {
@@ -946,6 +1079,102 @@ function renderDashboard(m, t) {
   if(barT) barT.style.width=pctTotal+'%';
 }
 
+// ── RENDER — VENDAS ONLINE (KIWIFY) ────────────────────────────────────────────
+function renderKiwify(m, k) {
+  var vendas=k.vendas, fat=k.fat, spendSite=m.spendSite||0;
+  var roas = spendSite>0 ? fat/spendSite : 0;
+  var cac  = vendas>0    ? spendSite/vendas : 0;
+
+  setEl('kwVendas', fNum(vendas));
+  setEl('kwVendasSub', vendas+' pedidos pagos · periodo selecionado');
+  setEl('kwFat', fBRL(fat));
+  setEl('kwROAS', roas>0 ? roas.toFixed(2)+'x' : '-');
+  setEl('kwROASSub', 'Fat. '+fBRL(fat)+' / Inv. '+fBRL(spendSite));
+  setEl('kwCAC', cac>0 ? fBRL(cac) : '-');
+  setEl('kwCACSub', 'Investimento / '+fNum(vendas)+' vendas');
+
+  // EVOLUCAO DIARIA
+  var daysSet={};
+  Object.keys(k.byDay).forEach(function(d){daysSet[d]=1;});
+  Object.keys(m.spendSiteByDay).forEach(function(d){daysSet[d]=1;});
+  var allDays=Object.keys(daysSet).sort();
+  var lbls      =allDays.map(function(d){var p=d.split('-');return p[2]+'/'+p[1];});
+  var vendasArr =allDays.map(function(d){return k.byDay[d]?k.byDay[d].vendas:0;});
+  var fatArr    =allDays.map(function(d){return k.byDay[d]?k.byDay[d].fat:0;});
+  var spendArr  =allDays.map(function(d){return m.spendSiteByDay[d]||0;});
+  var roasArr   =allDays.map(function(d,i){return spendArr[i]>0?+(fatArr[i]/spendArr[i]).toFixed(2):null;});
+  var cacArr    =allDays.map(function(d,i){return vendasArr[i]>0?+(spendArr[i]/vendasArr[i]).toFixed(2):null;});
+
+  mkChart('cKwVendasDia',{type:'bar',data:{labels:lbls,datasets:[{data:vendasArr,backgroundColor:'rgba(212,168,0,.7)',borderRadius:5,borderSkipped:false}]},options:{plugins:{legend:{display:false}},scales:{x:{grid:G},y:{grid:G,beginAtZero:true}}}});
+
+  mkChart('cKwRoasCac',{type:'line',data:{labels:lbls,datasets:[
+    {label:'ROAS',data:roasArr,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.06)',borderWidth:2,pointRadius:4,fill:true,tension:.3,spanGaps:true,yAxisID:'y'},
+    {label:'CAC', data:cacArr, borderColor:'#d4a800',backgroundColor:'rgba(212,168,0,.06)',borderWidth:2,pointRadius:4,fill:true,tension:.3,spanGaps:true,yAxisID:'y1'}
+  ]},options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},scales:{
+    x:{grid:G},
+    y: {grid:G,position:'left', beginAtZero:true, ticks:{callback:function(v){return v.toFixed(1)+'x';}}},
+    y1:{grid:{display:false},position:'right',beginAtZero:true,ticks:{callback:function(v){return 'R$'+v.toFixed(0);}}}
+  }}});
+
+  // VENDAS POR PRODUTO
+  var prodEl=document.getElementById('kwVendasProdutoBars');
+  if (prodEl) {
+    var prodEntries=Object.entries(k.byProduto).sort(function(a,b){return b[1].vendas-a[1].vendas;});
+    var prodTot=prodEntries.reduce(function(s,e){return s+e[1].vendas;},0)||1;
+    prodEl.innerHTML=prodEntries.map(function(e){
+      var pct=(e[1].vendas/prodTot*100).toFixed(1);
+      return '<div style="margin-bottom:14px">'
+        +'<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">'
+        +'<span style="font-weight:600;color:var(--text)">'+e[0]+'</span>'
+        +'<span style="display:flex;gap:16px">'
+        +'<span style="font-weight:700">'+e[1].vendas+' vendas <span style="color:var(--muted);font-size:10px">'+pct+'%</span></span>'
+        +'<span style="color:var(--green);font-weight:600">'+fBRL(e[1].fat)+'</span>'
+        +'</span></div>'
+        +'<div style="background:var(--border);border-radius:4px;height:8px">'
+        +'<div style="width:'+pct+'%;height:8px;border-radius:4px;background:var(--yellow)"></div></div>'
+        +'</div>';
+    }).join('') || '<div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Sem dados de produto no periodo</div>';
+  }
+
+  // VENDAS POR PUBLICO (utm_medium)
+  var medEl=document.getElementById('kwPublicoBars');
+  if (medEl) {
+    var medEntries=Object.entries(k.byMedium).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+    var medTot=medEntries.reduce(function(s,e){return s+e[1];},0)||1;
+    medEl.innerHTML=medEntries.map(function(e){
+      var pct=(e[1]/medTot*100).toFixed(1);
+      return '<div style="margin-bottom:10px">'
+        +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'
+        +'<span style="color:var(--text);font-weight:500">'+(e[0]||'(vazio)')+'</span>'
+        +'<span style="font-weight:700">'+e[1]+' <span style="color:var(--muted);font-size:10px">'+pct+'%</span></span></div>'
+        +'<div style="background:var(--border);border-radius:3px;height:7px">'
+        +'<div style="width:'+pct+'%;height:7px;border-radius:3px;background:var(--yellow)"></div></div>'
+        +'</div>';
+    }).join('') || '<div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Sem dados de publico no periodo</div>';
+  }
+
+  // VENDAS POR CANAL (utm_source)
+  var srcEl=document.getElementById('kwCanalBars');
+  if (srcEl) {
+    var srcEntries=Object.entries(k.bySource).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+    var srcTot=srcEntries.reduce(function(s,e){return s+e[1];},0)||1;
+    srcEl.innerHTML=srcEntries.map(function(e){
+      var pct=(e[1]/srcTot*100).toFixed(1);
+      return '<div style="margin-bottom:10px">'
+        +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'
+        +'<span style="color:var(--text);font-weight:500">'+(e[0]||'(vazio)')+'</span>'
+        +'<span style="font-weight:700">'+e[1]+' <span style="color:var(--muted);font-size:10px">'+pct+'%</span></span></div>'
+        +'<div style="background:var(--border);border-radius:3px;height:7px">'
+        +'<div style="width:'+pct+'%;height:7px;border-radius:3px;background:var(--yellow)"></div></div>'
+        +'</div>';
+    }).join('') || '<div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Sem dados de canal no periodo</div>';
+  }
+
+  // VENDAS POR CRIATIVO (utm_content)
+  var contEntries=Object.entries(k.byContent).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+  mkChart('cKwCriativos',{type:'bar',data:{labels:contEntries.map(function(e){return e[0].slice(0,30);}),datasets:[{data:contEntries.map(function(e){return e[1];}),backgroundColor:['#16a34a','rgba(22,163,74,.75)','rgba(22,163,74,.5)','rgba(22,163,74,.35)','rgba(22,163,74,.2)'],borderRadius:5,barThickness:20}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:G},y:{grid:{display:false}}}}});
+}
+
 // ── TEMA ──────────────────────────────────────────────────────────────────────
 function toggleTheme() {
   var html=document.documentElement;
@@ -963,7 +1192,7 @@ function toggleTheme() {
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
 function switchTab(tab) {
-  var tabs=['overview'];
+  var tabs=['overview','kiwify'];
   tabs.forEach(function(t){
     var btn=document.getElementById('tab-'+t);
     var pane=document.getElementById('pane-'+t);
@@ -983,8 +1212,8 @@ function fetchAll(manual) {
   if(badge){badge.className='status-badge loading';badge.innerHTML='<div class="dot"></div><span>Carregando...</span>';}
   if(errBan) errBan.classList.remove('show');
 
-  var urls=[csvURL(SHEET_META), csvURL(SHEET_TAMB)];
-  var TOTAL=2, results=[], done=0;
+  var urls=[csvURL(SHEET_META), csvURL(SHEET_TAMB), csvURL(SHEET_KIWIFY)];
+  var TOTAL=3, results=[], done=0;
 
   var safetyTimer=setTimeout(function(){
     if(done<TOTAL){console.warn('[FEF] Timeout — forcando render');done=TOTAL;onDone();}
@@ -1000,6 +1229,7 @@ function fetchAll(manual) {
       try{
         cachedMeta=parseCSV(results[0]||'');
         cachedTamb=parseCSV(results[1]||'');
+        cachedKiwify=parseCSV(results[2]||'');
         resetFilters();
         var now=new Date();
         var fmt=function(d){return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});};
@@ -1019,7 +1249,7 @@ function fetchAll(manual) {
   for(var i=0;i<urls.length;i++){
     (function(idx){
       fetch(urls[idx]+'&cb='+Date.now(),{cache:'no-store'})
-        .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status+' ao buscar aba '+(idx===0?SHEET_META:SHEET_TAMB));return r.text();})
+        .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status+' ao buscar aba '+[SHEET_META,SHEET_TAMB,SHEET_KIWIFY][idx]);return r.text();})
         .then(function(text){results[idx]=text;onDone();})
         .catch(function(e){console.error('[FEF] fetch '+idx,e);results[idx]='';onDone();});
     })(i);
