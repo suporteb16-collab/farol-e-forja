@@ -109,6 +109,11 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
 .cri-full{font-size:10px;color:var(--muted);display:block;margin-top:2px}
 .cac-bom{color:#16a34a}.cac-med{color:#d97706}.cac-ruim{color:#ef4444}
 .row-best{background:rgba(212,168,0,.06)!important}
+.seg-scroll{max-height:340px;overflow-y:auto}
+.seg-scroll thead th{position:sticky;top:0;background:var(--black);z-index:1}
+html.dark .seg-scroll thead th{background:#000}
+.seg-toggle{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer}
+.seg-toggle.active{background:var(--black);color:#fff;border-color:var(--black)}
 .footer{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 32px;display:flex;align-items:center;gap:24px;z-index:90}
 .footer-title{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);flex-shrink:0}
 .legend-items{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
@@ -208,6 +213,27 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
       </div>
     </div>
 
+    <!-- VENDAS POR ORIGEM DE COMPRA -->
+    <div class="section-label">Vendas: Presencial × Online</div>
+    <div class="grid2" style="margin-bottom:28px">
+      <div class="pub-card" style="flex-direction:row;justify-content:space-between;align-items:center">
+        <div>
+          <div class="pub-tag" style="background:rgba(212,168,0,.12);color:var(--yellow);border:1px solid rgba(212,168,0,.4)">🎟️ PRESENCIAL (Tamborete)</div>
+          <div class="pub-cac-val" id="gwTambVendas" style="margin-top:10px">-</div>
+          <div class="bn-sub" id="gwTambFat">-</div>
+        </div>
+        <div style="text-align:right"><div class="pub-cac-lbl">Ticket médio</div><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--black)" id="gwTambTicket">-</div></div>
+      </div>
+      <div class="pub-card" style="flex-direction:row;justify-content:space-between;align-items:center">
+        <div>
+          <div class="pub-tag" style="background:rgba(22,163,74,.1);color:var(--green);border:1px solid rgba(22,163,74,.35)">🛒 ONLINE (Kiwify)</div>
+          <div class="pub-cac-val" id="gwKwVendas" style="margin-top:10px">-</div>
+          <div class="bn-sub" id="gwKwFat">-</div>
+        </div>
+        <div style="text-align:right"><div class="pub-cac-lbl">Ticket médio</div><div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--black)" id="gwKwTicket">-</div></div>
+      </div>
+    </div>
+
     <!-- COMPOSICAO DO INVESTIMENTO -->
     <div class="section-label">Composicao do Investimento (Meta Ads)</div>
     <div class="grid2" style="margin-bottom:28px">
@@ -242,10 +268,17 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
         <div class="bn-sub" id="segSub">tráfego iniciado em 24/06/2026</div>
       </div>
       <div class="tabela-wrap" style="margin-bottom:0">
-        <table class="tbl">
-          <thead><tr><th>Data</th><th>Anúncio</th><th class="num">Seguidores</th></tr></thead>
-          <tbody id="segTbody"></tbody>
-        </table>
+        <div style="display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border);align-items:center">
+          <span style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-right:4px">Ver por</span>
+          <button class="seg-toggle active" id="segTabAnuncio" onclick="renderSeguidores('anuncio')">Anúncio</button>
+          <button class="seg-toggle" id="segTabCampanha" onclick="renderSeguidores('campanha')">Campanha</button>
+        </div>
+        <div class="seg-scroll">
+          <table class="tbl">
+            <thead><tr><th>Data</th><th id="segColLabel">Anúncio</th><th class="num">Seguidores</th></tr></thead>
+            <tbody id="segTbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -584,28 +617,39 @@ const DEFAULT_START = '2026-04-27';   // 1ª venda (Ancora presencial). Anuncios
 // Alcance dedup a nivel de conta (Meta Ads) — NAO e somavel pelas linhas; atualizar ao reexportar.
 const REACH_DEDUP   = 378491;
 
-// Seguidores ganhos no Instagram — export por ANÚNCIO (24/06 a 02/08/2026).
-// Fonte: coluna "Seguidores no Instagram" do CSV de anúncios, agregado por anúncio. Total = 1.068.
-// Atualizar ao reexportar a base de anúncios.
+// Seguidores ganhos no Instagram (24/06 a 02/08/2026). Fonte: coluna "Seguidores no
+// Instagram" dos exports do Meta, agregado por anúncio e por campanha. Total = 1.068.
+// Atualizar ao reexportar as bases.
 const SEGUIDORES_PERIODO = '24/06 – 02/08/2026';
-const SEGUIDORES_DATA = [
-  {anuncio:'Post do Instagram: Eu cansei de esperar que a...', seg:561},
-  {anuncio:'005 - VID - Nossos antepassados', seg:116},
-  {anuncio:'004 - VID - Nem todo mundo consegue', seg:113},
-  {anuncio:'001 - VID - Deus nos fez livres', seg:83},
-  {anuncio:'001 - VID - 3 dias de palestra', seg:50},
-  {anuncio:'003 - VID - Distancia nao e desculpa', seg:39},
-  {anuncio:'007 - VID - Direto ao ponto', seg:32},
-  {anuncio:'001 - VID - Tem uma decisao que eu tomei', seg:26},
-  {anuncio:'002 - VID - Tem uma coisa', seg:14},
-  {anuncio:'004 - VID - Nao tem nada a ver com red pill', seg:10},
-  {anuncio:'003 - VID - O ser humano', seg:8},
-  {anuncio:'005 - VID - Algumas conversas mudam', seg:5},
-  {anuncio:'002 - CARR - Time completo', seg:3},
-  {anuncio:'002 - VID - Muita gente me escreveu', seg:3},
-  {anuncio:'004 - VID - Convidado Italo Marsili', seg:2},
-  {anuncio:'005 - VID - Convidado Anderson Silva', seg:2},
-  {anuncio:'001 - VID - Das duas uma', seg:1}
+const SEGUIDORES_AD = [
+  {nome:'Post do Instagram: Eu cansei de esperar que a...', seg:561},
+  {nome:'005 - VID - Nossos antepassados', seg:116},
+  {nome:'004 - VID - Nem todo mundo consegue', seg:113},
+  {nome:'001 - VID - Deus nos fez livres', seg:83},
+  {nome:'001 - VID - 3 dias de palestra', seg:50},
+  {nome:'003 - VID - Distancia nao e desculpa', seg:39},
+  {nome:'007 - VID - Direto ao ponto', seg:32},
+  {nome:'001 - VID - Tem uma decisao que eu tomei', seg:26},
+  {nome:'002 - VID - Tem uma coisa', seg:14},
+  {nome:'004 - VID - Nao tem nada a ver com red pill', seg:10},
+  {nome:'003 - VID - O ser humano', seg:8},
+  {nome:'005 - VID - Algumas conversas mudam', seg:5},
+  {nome:'002 - CARR - Time completo', seg:3},
+  {nome:'002 - VID - Muita gente me escreveu', seg:3},
+  {nome:'004 - VID - Convidado Italo Marsili', seg:2},
+  {nome:'005 - VID - Convidado Anderson Silva', seg:2},
+  {nome:'001 - VID - Das duas uma', seg:1}
+];
+// Mesmos seguidores, agregados por campanha (export de campanhas). Total = 1.068.
+const SEGUIDORES_CAMP = [
+  {nome:'[DIST] Post do Instagram: Eu cansei de esperar que a...', seg:561},
+  {nome:'[VENDAS][SITE][QUENTE] Ingresso online', seg:210},
+  {nome:'[VENDAS][SITE][QUENTE] Principal criativo 5 isolado', seg:119},
+  {nome:'[DIST][ENGAJAMENTO][VV][FRIO] Distribuição de conteúdo', seg:83},
+  {nome:'[LEADS][SITE][QUENTE] Lotar grupo WhatsApp', seg:48},
+  {nome:'[VENDAS][SITE][QUENTE] Principal', seg:34},
+  {nome:'[VENDAS][SITE][QUENTE] Remarketing pág. vendas/checkout', seg:7},
+  {nome:'[VENDAS][SITE][FRIO] Principal', seg:6}
 ];
 
 // Data de fim default = hoje
@@ -899,6 +943,15 @@ function renderDashboard(m, t) {
   setEl('bnBestCAC',    bestCAC<Infinity ? fBRL(bestCAC) : '-');
   setEl('bnBestCACName',bestAd);
   setEl('bnBestCACSub', bestVendas+' vendas · '+fBRL(bestSpend)+' investidos');
+
+  // VENDAS: PRESENCIAL (tamborete) × ONLINE (kiwify)
+  var vTamb=vendas-vOnline, fTamb=fat-fatOnline;
+  setEl('gwTambVendas', fNum(vTamb)+' vendas');
+  setEl('gwTambFat',    fBRL(fTamb));
+  setEl('gwTambTicket', vTamb>0 ? fBRL(fTamb/vTamb) : '-');
+  setEl('gwKwVendas',   fNum(vOnline)+' vendas');
+  setEl('gwKwFat',      fBRL(fatOnline));
+  setEl('gwKwTicket',   vOnline>0 ? fBRL(fatOnline/vOnline) : '-');
 
   // COMPOSICAO DO INVESTIMENTO — a mídia (Valor usado) é 87,5% do total; 12,5% é imposto
   var valorTotal = spend/0.875;
@@ -1234,16 +1287,22 @@ function startCountdown(){
   },1000);
 }
 
-// ── SEGUIDORES (estático, do export de campanhas) ─────────────────────────────
-function renderSeguidores() {
-  var tot=SEGUIDORES_DATA.reduce(function(s,r){return s+r.seg;},0);
+// ── SEGUIDORES (estático, dos exports do Meta) — alterna Anúncio / Campanha ────
+function renderSeguidores(mode) {
+  mode = mode==='campanha' ? 'campanha' : 'anuncio';
+  var data = mode==='campanha' ? SEGUIDORES_CAMP : SEGUIDORES_AD;
+  var tot=data.reduce(function(s,r){return s+r.seg;},0);
   setEl('segTotal', fNum(tot));
-  setEl('segSub', SEGUIDORES_PERIODO+' · '+SEGUIDORES_DATA.length+' anúncios');
+  setEl('segSub', SEGUIDORES_PERIODO+' · '+data.length+' '+(mode==='campanha'?'campanhas':'anúncios'));
+  setEl('segColLabel', mode==='campanha'?'Campanha':'Anúncio');
+  var ba=document.getElementById('segTabAnuncio'), bc=document.getElementById('segTabCampanha');
+  if(ba) ba.classList.toggle('active', mode==='anuncio');
+  if(bc) bc.classList.toggle('active', mode==='campanha');
   var tb=document.getElementById('segTbody');
   if(tb){
-    tb.innerHTML=SEGUIDORES_DATA.slice().sort(function(a,b){return b.seg-a.seg;}).map(function(r){
+    tb.innerHTML=data.slice().sort(function(a,b){return b.seg-a.seg;}).map(function(r){
       return '<tr><td style="font-size:12px;color:var(--muted)">'+SEGUIDORES_PERIODO+'</td>'
-        +'<td style="font-size:12px">'+r.anuncio+'</td>'
+        +'<td style="font-size:12px">'+r.nome+'</td>'
         +'<td class="num">'+fNum(r.seg)+'</td></tr>';
     }).join('');
   }
