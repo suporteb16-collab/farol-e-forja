@@ -1,0 +1,5 @@
+# Config local de MCP (não publicar)
+.mcp.json
+
+# Exports de dados de campanha (não versionar em repo público)
+*.csv

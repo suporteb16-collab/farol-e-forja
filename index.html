@@ -208,6 +208,48 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
       </div>
     </div>
 
+    <!-- COMPOSICAO DO INVESTIMENTO -->
+    <div class="section-label">Composicao do Investimento (Meta Ads)</div>
+    <div class="grid2" style="margin-bottom:28px">
+      <div class="card">
+        <div class="card-title">💳 Mídia × Impostos</div>
+        <div class="pub-grid" style="margin-bottom:0;gap:12px">
+          <div class="pub-card">
+            <div class="pub-head">
+              <div><div class="pub-cac-lbl">Valor total colocado</div><div class="pub-cac-val" id="invTotal">-</div></div>
+            </div>
+            <div class="pub-row"><span>Mídia (87,5%)</span><span id="invMidia">-</span></div>
+            <div class="pub-row"><span>Impostos (12,5%)</span><span id="invImposto">-</span></div>
+          </div>
+          <div class="pub-card" style="justify-content:center">
+            <div class="pub-bar-bg" style="height:14px"><div class="pub-bar-fill" id="invBarMidia" style="background:#d4a800;height:14px;border-radius:4px 0 0 4px;display:inline-block;vertical-align:top"></div><div class="pub-bar-fill" id="invBarImposto" style="background:#ef4444;height:14px;border-radius:0 4px 4px 0;display:inline-block;vertical-align:top"></div></div>
+            <div class="pub-row" style="margin-top:10px"><span>🟡 Mídia</span><span>🔴 Impostos</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🎯 Investimento por Objetivo</div>
+        <div id="invObjetivoBars"></div>
+        <div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Base: mídia (Valor usado), por tag da campanha</div>
+      </div>
+    </div>
+
+    <!-- SEGUIDORES INSTAGRAM -->
+    <div class="section-label">Seguidores Ganhos no Instagram (Meta Ads)</div>
+    <div class="grid2" style="margin-bottom:28px;grid-template-columns:280px 1fr">
+      <div class="card" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
+        <div class="bn-lbl">📸 Total de Seguidores</div>
+        <div class="bn-val" id="segTotal" style="font-size:56px">-</div>
+        <div class="bn-sub" id="segSub">tráfego iniciado em 24/06/2026</div>
+      </div>
+      <div class="tabela-wrap" style="margin-bottom:0">
+        <table class="tbl">
+          <thead><tr><th>Data</th><th>Campanha</th><th>Anúncio</th><th class="num">Seguidores</th></tr></thead>
+          <tbody id="segTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- FUNIL -->
     <div class="section-label">Funil de Conversao</div>
     <div class="funnel-wrap">
@@ -215,11 +257,6 @@ input[type=date]{background:transparent;border:none;color:#ccc;font-family:'DM S
         <div class="funnel-trap" style="width:100%">
           <div class="ft-left"><div class="ft-name">Impressoes</div><div class="ft-val" id="fImp">-</div></div>
           <div class="ft-right"><div class="ft-cost" id="fCPM">-</div><div class="ft-cost-lbl">CPM (por 1.000)</div></div>
-        </div>
-        <div class="fc"><div class="fc-line"></div><div class="fc-tag" id="fRateAlc">-</div><div class="fc-line"></div></div>
-        <div class="funnel-trap" style="width:88%">
-          <div class="ft-left"><div class="ft-name">Alcance</div><div class="ft-val" id="fAlc">-</div></div>
-          <div class="ft-right"><div class="ft-cost" id="fCPA">-</div><div class="ft-cost-lbl">CP Alcance (por 1.000)</div></div>
         </div>
         <div class="fc"><div class="fc-line"></div><div class="fc-tag" id="fRateCTR">-</div><div class="fc-line"></div></div>
         <div class="funnel-trap" style="width:72%">
@@ -558,6 +595,21 @@ const KIWIFY_CAMPAIGN_FILTER = '[B16] [VENDAS] [SITE] [F&F]';
 const REFRESH_MS    = 60 * 60 * 1000; // 1 hora
 const DEFAULT_START = '2026-06-23';
 
+// Seguidores ganhos no Instagram — export por campanha (24/06 a 02/08/2026).
+// Fonte: coluna "Seguidores no Instagram" do CSV de campanhas. Total = 1.068.
+// Export é a nível de campanha (não há coluna de anúncio); atualizar ao reexportar.
+const SEGUIDORES_PERIODO = '24/06 – 02/08/2026';
+const SEGUIDORES_DATA = [
+  {campanha:'[VENDAS][SITE][QUENTE] Principal criativo 5 isolado', anuncio:'—', seg:119},
+  {campanha:'[DIST] Post do Instagram: "Eu cansei de esperar que a..."', anuncio:'—', seg:561},
+  {campanha:'[VENDAS][SITE][QUENTE] Remarketing pág. vendas/checkout', anuncio:'—', seg:7},
+  {campanha:'[VENDAS][SITE][FRIO] Principal', anuncio:'—', seg:6},
+  {campanha:'[LEADS][SITE][QUENTE] Lotar grupo WhatsApp', anuncio:'—', seg:48},
+  {campanha:'[DIST][ENGAJAMENTO][VV][FRIO] Distribuição de conteúdo', anuncio:'—', seg:83},
+  {campanha:'[VENDAS][SITE][QUENTE] Principal', anuncio:'—', seg:34},
+  {campanha:'[VENDAS][SITE][QUENTE] Ingresso online', anuncio:'—', seg:210}
+];
+
 // Data de fim default = hoje
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -638,6 +690,7 @@ Chart.defaults.font.family='DM Sans';
 function processMeta(rows, d1, d2) {
   var spend=0,reach=0,imp=0,clk=0,lpv=0,chk=0,metaPurchase=0;
   var spendFrio=0,spendQuente=0;
+  var spendDist=0,spendVendas=0,spendLeads=0;
   var spendSite=0, spendSiteByDay={};
   var byDay={}, metaByAd={}, byAdset={}, byCamp={};
 
@@ -662,6 +715,10 @@ function processMeta(rows, d1, d2) {
 
     if (campName.indexOf('FRIO')>=0)   spendFrio   += s;
     if (campName.indexOf('QUENTE')>=0) spendQuente += s;
+    // Investimento por objetivo (tag no nome da campanha)
+    if (campName.indexOf('[DIST]')>=0 || campName.indexOf('DISTRIBUI')>=0) spendDist   += s;
+    else if (campName.indexOf('[VENDAS]')>=0)                              spendVendas += s;
+    else if (campName.indexOf('[LEADS]')>=0)                               spendLeads  += s;
     if (campName.indexOf(KIWIFY_CAMPAIGN_FILTER.toUpperCase())>=0) {
       spendSite += s;
       if (!spendSiteByDay[d]) spendSiteByDay[d]=0;
@@ -698,6 +755,7 @@ function processMeta(rows, d1, d2) {
 
   return {spend:spend,reach:reach,imp:imp,clk:clk,lpv:lpv,chk:chk,metaPurchase:metaPurchase,
           spendFrio:spendFrio,spendQuente:spendQuente,
+          spendDist:spendDist,spendVendas:spendVendas,spendLeads:spendLeads,
           spendSite:spendSite,spendSiteByDay:spendSiteByDay,
           byDay:byDay,metaByAd:metaByAd,byAdset:byAdset,byCamp:byCamp};
 }
@@ -827,16 +885,14 @@ function resetFilters() {
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function renderDashboard(m, t) {
-  var spend=m.spend,reach=m.reach,imp=m.imp,clk=m.clk,lpv=m.lpv,chk=m.chk;
+  var spend=m.spend,imp=m.imp,clk=m.clk,lpv=m.lpv,chk=m.chk;
   var vendas=t.vendas,fat=t.fat;
 
   var cac    = vendas>0 ? spend/vendas : 0;
   var cpm    = imp>0    ? spend/imp*1000 : 0;
-  var cpa    = reach>0  ? spend/reach*1000 : 0;
   var cpc    = clk>0    ? spend/clk : 0;
   var cpLPV  = lpv>0    ? spend/lpv : 0;
   var cpChk  = chk>0    ? spend/chk : 0;
-  var rAlc   = imp>0    ? reach/imp*100 : 0;
   var ctr    = imp>0    ? clk/imp*100 : 0;
   var rLPV   = clk>0    ? lpv/clk*100 : 0;
   var rChk   = lpv>0    ? chk/lpv*100 : 0;
@@ -863,19 +919,42 @@ function renderDashboard(m, t) {
   setEl('bnBestCACName',bestAd);
   setEl('bnBestCACSub', bestVendas+' vendas · '+fBRL(bestSpend)+' investidos');
 
+  // COMPOSICAO DO INVESTIMENTO — a mídia (Valor usado) é 87,5% do total; 12,5% é imposto
+  var valorTotal = spend/0.875;
+  var imposto    = valorTotal - spend;
+  setEl('invTotal',   fBRL(valorTotal));
+  setEl('invMidia',   fBRL(spend));
+  setEl('invImposto', fBRL(imposto));
+  var barMidia=document.getElementById('invBarMidia'), barImp=document.getElementById('invBarImposto');
+  if(barMidia) barMidia.style.width='87.5%';
+  if(barImp)   barImp.style.width='12.5%';
+
+  // INVESTIMENTO POR OBJETIVO
+  var objEl=document.getElementById('invObjetivoBars');
+  if (objEl) {
+    var objRows=[['Venda direta',m.spendVendas||0,'#16a34a'],['Distribuição',m.spendDist||0,'#d4a800'],['Leads',m.spendLeads||0,'#3b82f6']]
+      .filter(function(o){return o[1]>0;}).sort(function(a,b){return b[1]-a[1];});
+    var objTot=objRows.reduce(function(s,o){return s+o[1];},0)||1;
+    objEl.innerHTML=objRows.map(function(o){
+      var pct=(o[1]/objTot*100).toFixed(1);
+      return '<div style="margin-bottom:12px">'
+        +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'
+        +'<span style="color:var(--muted)">'+o[0]+'</span><span style="font-weight:600">'+fBRL(o[1])+' · '+pct+'%</span></div>'
+        +'<div class="pub-bar-bg"><div class="pub-bar-fill" style="width:'+pct+'%;background:'+o[2]+'"></div></div></div>';
+    }).join('');
+  }
+
   // FUNIL
   var metaPurchase=m.metaPurchase||0;
   var cacMeta = metaPurchase>0 ? spend/metaPurchase : 0;
   var rVendaMeta = chk>0 ? metaPurchase/chk*100 : 0;
   setEl('fImp', fNum(imp));    setEl('fCPM',   fBRL(cpm));
-  setEl('fAlc', fNum(reach));  setEl('fCPA',   fBRL(cpa));
   setEl('fClk', fNum(clk));    setEl('fCPC',   fBRL(cpc));
   setEl('fLPV', fNum(lpv));    setEl('fCPLPV', fBRL(cpLPV));
   setEl('fChk', fNum(Math.round(chk))); setEl('fCPChk', fBRL(cpChk));
   setEl('fVendas', fNum(Math.round(metaPurchase)));
   setEl('fCAC', cacMeta>0 ? fBRL(cacMeta) : '-');
   setEl('fVendasTamb', fNum(vendas));
-  setEl('fRateAlc',  'Alcance / Impressoes · '+fPct(rAlc));
   setEl('fRateCTR',  'CTR · '+ctr.toFixed(2)+'%');
   setEl('fRateLPV',  fPct(rLPV)+' dos cliques');
   setEl('fRateChk',  fPct(rChk)+' do LPV');
@@ -1267,6 +1346,23 @@ function startCountdown(){
     setEl('nextUpdate','Prox em '+pad(h)+':'+pad(mn)+':'+pad(s));
   },1000);
 }
+
+// ── SEGUIDORES (estático, do export de campanhas) ─────────────────────────────
+function renderSeguidores() {
+  var tot=SEGUIDORES_DATA.reduce(function(s,r){return s+r.seg;},0);
+  setEl('segTotal', fNum(tot));
+  setEl('segSub', SEGUIDORES_PERIODO+' · '+SEGUIDORES_DATA.length+' campanhas');
+  var tb=document.getElementById('segTbody');
+  if(tb){
+    tb.innerHTML=SEGUIDORES_DATA.slice().sort(function(a,b){return b.seg-a.seg;}).map(function(r){
+      return '<tr><td style="font-size:12px;color:var(--muted)">'+SEGUIDORES_PERIODO+'</td>'
+        +'<td style="font-size:12px">'+r.campanha+'</td>'
+        +'<td style="font-size:12px;color:var(--muted)">'+r.anuncio+'</td>'
+        +'<td class="num">'+fNum(r.seg)+'</td></tr>';
+    }).join('');
+  }
+}
+renderSeguidores();
 
 fetchAll(false);
 startCountdown();
