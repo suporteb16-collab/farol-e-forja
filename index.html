@@ -371,6 +371,14 @@ html.dark .seg-scroll thead th{background:#000}
       </div>
     </div>
 
+    <!-- VENDAS POR UTM MEDIUM -->
+    <div class="section-label">Vendas por UTM Medium</div>
+    <div class="card" style="margin-bottom:28px">
+      <div class="card-title">📊 Vendas por UTM Medium</div>
+      <canvas id="cVendasMedium" height="150"></canvas>
+      <div style="margin-top:10px;font-size:10px;font-style:italic;color:var(--muted);text-align:right">Fonte: Vendas_Totais (utm_medium)</div>
+    </div>
+
     <!-- CRIATIVOS E DISTRIBUICAO -->
     <div class="section-label">Criativos e Distribuicao</div>
     <div class="grid2" style="margin-bottom:28px">
@@ -827,7 +835,7 @@ function classificarOrigem(source, medium, content) {
 function processVendas(rows, d1, d2) {
   var vendas=0,fat=0;
   var vendasOnline=0,fatOnline=0;   // gateway kiwify (vendas dirigidas pela midia do site)
-  var byDay={}, byOrigem1={}, byOrigem4={}, byProduto={};
+  var byDay={}, byOrigem1={}, byOrigem4={}, byProduto={}, byMedium={};
   var seenIds={};
 
   rows.forEach(function(r) {
@@ -865,6 +873,10 @@ function processVendas(rows, d1, d2) {
       var o4Key=content||'Sem criativo';
       if (!byOrigem4[o4Key]) byOrigem4[o4Key]=0; byOrigem4[o4Key]++;
 
+      // byMedium = utm_medium (canal/meio da venda)
+      var medKey=medium?medium.toLowerCase():'(sem medium)';
+      if (!byMedium[medKey]) byMedium[medKey]=0; byMedium[medKey]++;
+
       var prod=(r['nome_produto']||'').trim()||'Sem produto';
       if (!byProduto[prod]) byProduto[prod]={vendas:0,fat:0};
       byProduto[prod].vendas++;
@@ -873,7 +885,7 @@ function processVendas(rows, d1, d2) {
   });
 
   return {vendas:vendas,fat:fat,vendasOnline:vendasOnline,fatOnline:fatOnline,
-          byDay:byDay,byOrigem1:byOrigem1,byOrigem4:byOrigem4,byProduto:byProduto};
+          byDay:byDay,byOrigem1:byOrigem1,byOrigem4:byOrigem4,byProduto:byProduto,byMedium:byMedium};
 }
 
 // ── FILTROS ───────────────────────────────────────────────────────────────────
@@ -1040,6 +1052,10 @@ function renderDashboard(m, t) {
         +'</div>';
     }).join('') || '<div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Sem dados de origem no periodo</div>';
   }
+
+  // VENDAS POR UTM MEDIUM
+  var medEntries=Object.entries(t.byMedium||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+  mkChart('cVendasMedium',{type:'bar',data:{labels:medEntries.map(function(e){return e[0];}),datasets:[{data:medEntries.map(function(e){return e[1];}),backgroundColor:'rgba(212,168,0,.7)',borderRadius:5,barThickness:20}]},options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var tot=medEntries.reduce(function(s,e){return s+e[1];},0)||1;return c.parsed.x+' vendas ('+(c.parsed.x/tot*100).toFixed(1)+'%)';}}}},scales:{x:{grid:G,beginAtZero:true},y:{grid:{display:false}}}}});
 
   // Investimento por público (Frio / Quente)
   var totalSpend=spend||1;
